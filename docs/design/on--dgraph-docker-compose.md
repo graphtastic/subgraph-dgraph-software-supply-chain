@@ -1,6 +1,6 @@
 # Architecting a Production-Ready Dgraph Environment with Docker Compose
 
-This report provides a comprehensive methodology for deploying and managing the Dgraph graph database using Docker Compose. The focus is on establishing a resilient, high-performance local development environment that mirrors production best practices, facilitates rapid iteration, and provides transparent management of configuration and persistent storage. The provided architecture and recommendations are specifically tailored to support demanding applications, such as large-scale social networks.
+This document provides a comprehensive methodology for deploying and managing the Dgraph graph database using Docker Compose. The focus is on establishing a resilient, high-performance local development environment that mirrors production best practices, facilitates rapid iteration, and provides transparent management of configuration and persistent storage. The provided architecture and recommendations are specifically tailored to support demanding applications, such as large-scale social networks.
 
 ## Architecting a Resilient Dgraph Cluster with Docker Compose
 
