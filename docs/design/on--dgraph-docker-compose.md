@@ -4,14 +4,17 @@ This document provides a comprehensive methodology for deploying and managing th
 
 ## Architecting a Resilient Dgraph Cluster with Docker Compose
 
-### Introduction: Beyond the standalone Image
+### Introduction: Moving beyond the standalone image
 
 Initial exploration of Dgraph often begins with the `dgraph/standalone` Docker image, a convenient tool for quick demonstrations. However, this all-in-one image, which bundles Dgraph Zero and Alpha processes into a single container, is explicitly designated as unsuitable for production environments and, by extension, for any serious development or testing workload. Relying on this image introduces significant architectural compromises, including a lack of service isolation, an inability to scale components independently, and opaque resource management. Furthermore, historical inconsistencies regarding the inclusion of the Ratel UI have created confusion and demonstrated the brittleness of such a monolithic approach.
-To build a robust system, one must start with a production-like architecture from the outset. This involves a multi-service deployment where each component of the Dgraph cluster is managed as a distinct, containerized service. This approach ensures that the development environment accurately reflects the behavior and operational characteristics of a production deployment.
+
+We start with a production-like architecture from the outset. This involves a multi-service deployment where each component of the Dgraph cluster is managed as a distinct, containerized service. We will use docker compose initially to facilitate CI workflows as well as local iterative development, then generate kubernetes manifests. This approach ensures that the development environment accurately reflects the behavior and operational characteristics of a production deployment from the outset of the effort.
 
 ### The Core Components of a Dgraph Cluster
 
 A standard Dgraph cluster is composed of three primary, independent components that work in concert:
+
+**TODO: diagram**
 
 *   **Dgraph Zero: The Cluster Coordinator**
     Dgraph Zero serves as the control plane of the cluster. Its responsibilities include managing cluster metadata, distributing data shards (known as tablets) across Alpha nodes, and maintaining cluster-wide consensus using the Raft protocol. It orchestrates leader elections within replica groups and acts as the central authority for transaction timestamp assignment. Zero communicates with Alpha nodes over a gRPC port (default `5080`) and exposes an HTTP endpoint for administrative and metrics purposes (default `6080`).
@@ -32,6 +35,8 @@ This section presents a complete, annotated Docker Compose configuration designe
 
 A well-organized directory structure is crucial for managing persistent data and configuration files. This structure isolates all Dgraph-related assets and aligns with the volume mappings defined in the `docker-compose.yml` file. Before proceeding, create the following directory structure in your project's root:
 
+**TODO ensure is wrapped into the makefile, and located in .graphtastic or somesuch**
+
 ```bash
 mkdir -p dgraph-stack/dgraph/zero
 mkdir -p dgraph-stack/dgraph/alpha
@@ -42,7 +47,9 @@ This structure creates separate directories for Zero and Alpha data, preventing 
 
 ### The Complete docker-compose.yml
 
-Create a file named `docker-compose.yml` in the root of your project with the following content. This configuration defines the three core services, persistent volumes, and a dedicated network for inter-service communication.
+This configuration defines the three core services, persistent volumes, and a dedicated network for inter-service communication.
+
+**TODO: use external network**
 
 ```yaml
 version: "3.8"
@@ -92,7 +99,7 @@ networks:
     driver: bridge
 ```
 
-### Service-by-Service Deconstruction
+### Services
 
 *   **The `zero` Service:**
     *   `image: dgraph/dgraph:latest`: Uses the official, unified Dgraph image for the cluster components.
@@ -116,7 +123,9 @@ The configuration uses Docker bind mounts, directly mapping host directories int
 | `./dgraph-stack/dgraph/zero`  | `/dgraph`      | `zero`  | `zw`                 | Stores Zero's Raft write-ahead logs and cluster state. Critical for cluster membership and transaction coordination.                 |
 | `./dgraph-stack/dgraph/alpha` | `/dgraph`      | `alpha` | `p`, `w`, `x`        | Stores Alpha's posting lists (`p`, the graph data/indices), Raft WALs (`w`), and live loader mappings (`x`). This is the core database data. |
 
-### Networking for Seamless Communication
+### Networking (external)
+
+**TODO update to selectively use both default networking, and optionally to participate in an external network to facilitate construction via multiple compose files**
 
 A custom bridge network, `dgraph-net`, is defined and attached to all services. This is a Docker best practice that creates an isolated network for the application. Within this network, Docker provides automatic service discovery, allowing containers to resolve each other by their service name (e.g., the `alpha` container can reach the `zero` container at the hostname `zero`). This makes the `--zero=zero:5080` flag function reliably and renders the entire stack portable across different host machines without any changes to the configuration.
 
@@ -125,6 +134,8 @@ A custom bridge network, `dgraph-net`, is defined and attached to all services. 
 Embedding configuration flags directly within the `command` section of the `docker-compose.yml` file is inflexible and hinders rapid iteration. Any change to a flag requires modifying the core infrastructure definition file. To address this, configuration should be decoupled from the service definition.
 
 ### Pattern 1: Using Environment Files for Simple Flags
+
+**TODO: use .env.default-rename-me file to make this simpiler, consider wrapping into makefile**
 
 For simple, single-value flags, Docker Compose's support for environment files provides a clean solution. For example, to manage the admin operations whitelist:
 
@@ -142,7 +153,7 @@ Now, the whitelist can be modified in the `.env` file, and the change can be app
 
 ### Pattern 2: Using Mounted Scripts for Complex Configuration
 
-For managing a larger set of configuration flags, a mounted startup script offers maximum flexibility and readability. This pattern moves the entire command logic into an external, version-controllable script.
+While not ideal, this pattern is included for reference. We prefer declarative config wherever possible, vs. running scripts. For managing a larger set of configuration flags, a mounted startup script offers maximum flexibility and provides an accessible way to learn CLI commands for dgraph. This pattern moves the entire command logic into an external, version-controllable script.
 
 1.  Create a file named `start-alpha.sh` inside the `./dgraph-stack/config/` directory:
     ```bash
@@ -170,7 +181,7 @@ For managing a larger set of configuration flags, a mounted startup script offer
         #... other properties
     ```
 
-This approach completely decouples the runtime configuration of the Dgraph Alpha from the Docker Compose definition. Engineers can now freely edit the `start-alpha.sh` file to add or modify any of the extensive command-line flags Dgraph offers and apply them with a simple container restart, achieving the desired rapid iteration workflow.
+This approach completely decouples the runtime configuration of the Dgraph Alpha from the Docker Compose definition. Engineers can now freely edit the `start-alpha.sh` file to add or modify any of the extensive command-line flags Dgraph offers and apply them with a simple container restart.
 
 ## Cluster Initialization, Schema Management, and Verification
 
