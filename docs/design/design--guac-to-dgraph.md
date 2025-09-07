@@ -1,3 +1,16 @@
+# GUAC to Dgraph: A Subgraph Implementation Design
+
+### Document Changelog
+
+*   **v2.0 - September 7, 2025**
+    *   **Strategic Reframing:** Re-contextualized the document to serve as the official internal implementation design for the `subgraph-dgraph-software-supply-chain` Spoke within the Graphtastic Platform.
+    *   **Clarified Dual Purpose:** Explicitly stated the Spoke's dual role as both a standalone demonstrator for the CNCF Software Supply Chain Insights initiative and an integrated component of the Graphtastic supergraph.
+    *   **Aligned with Tome Precepts:** Added diagrams and text to illustrate the "Spoke as a Black Box" principle, showing how the ETL pipeline is an encapsulated internal process.
+    *   **Strengthened Federation Requirement:** Updated language to reflect that federation compliance is a primary, day-one requirement, not a future enhancement.
+    *   **Integrated Developer Workflow:** Connected the tool's operational model to the Graphtastic `Makefile` and developer control plane conventions.
+
+---
+
 ### Table of Contents
 
 *   **1. Executive Summary & Strategic Goals**
@@ -96,6 +109,14 @@ graph TD
 
 While the immediate demonstrator of this architecture is the GUAC-to-Dgraph migration, the underlying patterns and tooling are designed to be general-purpose, establishing a framework for leveraging GraphQL as a *lingua franca* for data interchange between disparate graph systems.
 
+It is critical to note that this document describes the **internal architecture and data ingestion strategy for the `subgraph-dgraph-software-supply-chain` Spoke**, a component within the broader Graphtastic Platform. The ETL-to-RDF pipeline detailed herein is a deliberate, performance-driven implementation choice for populating this Spoke's stateful backend.
+
+This component serves a dual purpose:
+1.  To act as the reference implementation and **standalone demonstrator for the [CNCF Software Supply Chain Insights initiative](https://github.com/cncf/toc/issues/1709)**.
+2.  To function as a fully compliant, federated **Spoke within the Graphtastic supergraph**.
+
+Therefore, its design prioritizes both high-performance bulk data ingestion (as described here) and a federation-compliant GraphQL API as its external contract.
+
 #### 1.1. The Business Objective: A Unified, Persistent Software Supply Chain Graph
 
 GUAC instances generate invaluable software supply chain metadata. While GUAC can be used in ephemeral CI/CD build cycles, it is also suited for larger, centralized deployments. In either scenario, the default persistence layers may not be designed for the massive scale and complex analytical queries required when aggregating data across an entire organization.
@@ -108,22 +129,22 @@ The goal is to create a centralized, persistent Dgraph instance that serves as t
 
 The design is founded on three core principles to ensure a robust and scalable solution:
 
-1. **Decoupling & Resilience**: The pipeline is separated into two distinct phases: extraction and loading. This modularity, connected via an intermediate file-based representation, ensures that a failure in one stage (e.g., a network issue during loading) does not require a costly restart of the entire process.
+1.  **Decoupling & Resilience**: The pipeline is separated into two distinct phases: extraction and loading. This modularity, connected via an intermediate file-based representation, ensures that a failure in one stage (e.g., a network issue during loading) does not require a costly restart of the entire process.
 
     This decoupling also facilitates a powerful open-source collaboration model. Individual open-source projects can run a CI job (e.g., a GitHub Action) that, after generating build artifacts like SBOMs, runs a local GUAC instance. This instance builds and enriches the graph for that specific project. The CI job then exports the complete graph as a compressed RDF file, which is published as a standard release artifact alongside binaries and source code. The centralized Dgraph instance can then fetch these RDF artifacts from many different projects and ingest them in a single bulk operation using the Dgraph Bulk Loader. For more continuous updates, the Live Loader will also be supported.
-2. **High Fidelity**: The extraction process is driven by the GUAC project's own pre-existing `.graphql` query files. This guarantees that data is fetched exactly as the source application's developers intended, improving reliability and significantly reducing long-term maintenance overhead.
-3. **Maximum Performance**: The architecture uses the most efficient tool for each job. For the massive initial data population, it leverages Dgraph's offline **Bulk Loader**. For all subsequent incremental updates, it uses the online **Live Loader**, ensuring maximum ingestion throughput in all scenarios.
+2.  **High Fidelity**: The extraction process is driven by the GUAC project's own pre-existing `.graphql` query files. This guarantees that data is fetched exactly as the source application's developers intended, improving reliability and significantly reducing long-term maintenance overhead.
+3.  **Maximum Performance**: The architecture uses the most efficient tool for each job. For the massive initial data population, it leverages Dgraph's offline **Bulk Loader**. For all subsequent incremental updates, it uses the online **Live Loader**, ensuring maximum ingestion throughput in all scenarios.
 
 #### 1.3. Summary of Key Architectural Decisions
 
-* **Core Architecture**: A decoupled, two-phase ETL pipeline where data is first extracted from the GUAC GraphQL API to compressed RDF files, and then loaded into Dgraph from those files.
-* **Technology Stack**: A Node.js and TypeScript environment to natively leverage the powerful, low-level tooling from The Guild's GraphQL ecosystem.
-* **Query Strategy**: A high-fidelity approach using GUAC's own pre-defined `.graphql` files as the primary source for extraction queries, with optional support for dynamic query generation.
-* **Data Deduplication**: A schema-driven "upsert" strategy, enabled by programmatically augmenting the source schema with Dgraph's `@id` directive on natural business keys. This pushes the complexity of deduplication down into the database layer, which is optimized for the task.
+*   **Core Architecture**: A decoupled, two-phase ETL pipeline where data is first extracted from the GUAC GraphQL API to compressed RDF files, and then loaded into Dgraph from those files.
+*   **Technology Stack**: A Node.js and TypeScript environment to natively leverage the powerful, low-level tooling from The Guild's GraphQL ecosystem.
+*   **Query Strategy**: A high-fidelity approach using GUAC's own pre-defined `.graphql` files as the primary source for extraction queries, with optional support for dynamic query generation.
+*   **Data Deduplication**: A schema-driven "upsert" strategy, enabled by programmatically augmenting the source schema with Dgraph's `@id` directive on natural business keys. This pushes the complexity of deduplication down into the database layer, which is optimized for the task.
 
 ### 2. Foundational Concepts: GraphQL as a Data Lingua Franca
 
-To architect a successful migration pipeline, one must first understand the nuances of using GraphQL—a protocol designed for selective data retrieval—for bulk data export.
+To architect a successful migration pipeline, one must first understand the nuances of using GraphQL—a protocol designed for selective data retrieval—for bulk data export. Within the Graphtastic ecosystem, we recognize two distinct domains of data exchange. **GraphQL is the lingua franca of the real-time API layer**, governing all inter-service communication through the supergraph. For the specific challenge of *bulk data ingestion*, **RDF serves as the high-performance lingua franca**, acting as the intermediate format between the extractor and the Dgraph loaders. This document focuses on the latter as an implementation strategy.
 
 #### 2.1. The Impedance Mismatch: Understanding GraphQL's Design for Bulk Data
 
@@ -247,8 +268,7 @@ graph TD
 
     B -- "Input" --> D
     F -- "POST /admin/schema" --> G
-    G -- "Generates" --> H
-```
+    G -- "Generates" --> H```
 
 #### 4.1. Automated Provisioning via Schema Definition Language (SDL)
 
@@ -268,13 +288,13 @@ The core requirement of data deduplication is solved by adding the `@id` directi
 
 To ensure the aggregated graph is fast and responsive for analytical queries, the `@search` directive is added to fields that will be commonly used in filters. This instructs Dgraph to build the appropriate indexes, preventing slow, full-scan operations and enabling capabilities like full-text search, term matching, and regular expressions.
 
-##### **4.2.3. Enabling Future Federation with the `@key` Directive**
+##### 4.2.3. Fulfilling the Federation Contract with the `@key` Directive
 
-Beyond Dgraph-specific optimizations, we will also add the standard Apollo Federation `@key` directive. This directive serves a different but complementary purpose to Dgraph's `@id`.
+Beyond Dgraph-specific optimizations, we **must** also add the standard Apollo Federation `@key` directive to fulfill the Spoke's external contract with the supergraph. This directive serves a different but complementary purpose to Dgraph's `@id`.
 
-* **`@id` (Internal Contract):** This is a Dgraph-specific directive that enables its native upsert functionality and creates a unique index. It is an *internal contract* with the database engine itself.
-* **`@key` (External Contract):** This is a Federation specification directive that declares how an entity can be uniquely identified by an external federation gateway. It is an *external contract* that allows Dgraph to act as a compliant "subgraph" in a larger, distributed graph.
-By adding the `@key` directive now, even though we are not immediately federating, we gain significant future flexibility at virtually no cost. It makes our Dgraph instance "federation-ready" from day one. If we later choose to evolve the architecture, no schema changes will be required. The presence of `@key` has no negative impact on a standalone Dgraph instance's performance or functionality.
+*   **`@id` (Internal Contract):** This is a Dgraph-specific directive that enables its native upsert functionality and creates a unique index. It is an *internal contract* with the database engine itself.
+*   **`@key` (External Contract):** This is a Federation specification directive that declares how an entity can be uniquely identified by an external federation gateway. It is an *external contract* that allows Dgraph to act as a compliant "subgraph" in a larger, distributed graph.
+By adding the `@key` directive now, we gain significant future flexibility at virtually no cost. It makes our Dgraph instance "federation-ready" from day one. If we later choose to evolve the architecture, no schema changes will be required. The presence of `@key` has no negative impact on a standalone Dgraph instance's performance or functionality.
 
 #### 4.3. The Augmented GUAC Schema for Dgraph
 
@@ -291,11 +311,32 @@ The following table provides a prescriptive model for the schema augmentation pr
 
 ### 5. The Migration Pipeline: A Detailed Architectural Blueprint
 
-This section provides the detailed blueprint for the ETL pipeline, based on the decoupled, two-phase architecture.
-
 #### 5.1. High-Level Architecture: A Decoupled, Two-Phase ETL Process
 
-The architecture separates data extraction from data loading via an intermediate file-based representation (compressed RDF N-Quads). This modularity makes the pipeline resilient, scalable, and allows for the aggregation of data from multiple GUAC sources before a single load operation.
+Before detailing the internal ETL process, it's important to visualize how this entire pipeline is encapsulated within the Spoke boundary, adhering to the 'Subgraphs Are Standalone' principle.
+
+```mermaid
+graph TD
+    subgraph " "
+        direction LR
+        SupergraphGateway[Supergraph Gateway]
+        SupergraphGateway -- "GraphQL Query" --> SpokeEndpoint
+    end
+
+    subgraph "subgraph-dgraph-software-supply-chain (Spoke Boundary)"
+        SpokeEndpoint[":8080/graphql"]
+        Dgraph[(Dgraph Cluster)]
+        SpokeEndpoint -- "Serves from" --> Dgraph
+
+        subgraph "Internal ETL Process (via 'make seed')"
+           GUAC[GUAC API Source] --> Extractor[Extractor Tool]
+           Extractor --> RDF[RDF Artifact]
+           RDF --> Loader[Dgraph Loader]
+           Loader --> Dgraph
+        end
+    end
+```
+The following sections detail the architecture of the 'Internal ETL Process' shown above. The architecture separates data extraction from data loading via an intermediate file-based representation (compressed RDF N-Quads). This modularity makes the pipeline resilient, scalable, and allows for the aggregation of data from multiple GUAC sources before a single load operation.
 
 ```mermaid
 graph TD
@@ -346,8 +387,8 @@ The first phase consists of a custom script responsible for extracting the compl
 
 The extractor script operates in two distinct stages to ensure relational integrity, with the work in each stage parallelized for maximum performance.
 
-* **Stage 1 (Parallel Node Extraction)**: The script first identifies all "Node" types. A pool of concurrent workers processes these types in parallel. Each worker is responsible for extracting all data for a given type and streaming the transformed RDF data to an output file.
-* **Stage 2 (Parallel Edge Extraction)**: Only after all node extraction is complete does this stage begin. The worker pool then processes all "Edge" types in parallel, confident that the constituent nodes for every relationship already exist.
+*   **Stage 1 (Parallel Node Extraction)**: The script first identifies all "Node" types. A pool of concurrent workers processes these types in parallel. Each worker is responsible for extracting all data for a given type and streaming the transformed RDF data to an output file.
+*   **Stage 2 (Parallel Edge Extraction)**: Only after all node extraction is complete does this stage begin. The worker pool then processes all "Edge" types in parallel, confident that the constituent nodes for every relationship already exist.
 
 ##### 5.2.2. Query Strategy: High-Fidelity Pre-defined Queries
 
@@ -401,15 +442,15 @@ graph TD
 
 ##### 5.3.1. Initial Population: Dgraph Bulk Loader
 
-* **When to Use**: For the **one-time** initial population of a brand new, empty Dgraph cluster only.
-* **Process**: The Dgraph Alpha nodes are stopped. The `dgraph bulk` command is run, processing all generated RDF files offline to create the database's low-level data structures. For more details, see the [official Dgraph Bulk Loader documentation](https://docs.hypermode.com/dgraph/admin/bulk-loader).
-* **Rationale**: The bulk loader is by far the fastest method for importing large datasets into a new cluster because it bypasses the transactional overhead of live writes and builds the database's internal data structures directly.
+*   **When to Use**: For the **one-time** initial population of a brand new, empty Dgraph cluster only.
+*   **Process**: The Dgraph Alpha nodes are stopped. The `dgraph bulk` command is run, processing all generated RDF files offline to create the database's low-level data structures. For more details, see the [official Dgraph Bulk Loader documentation](https://docs.hypermode.com/dgraph/admin/bulk-loader).
+*   **Rationale**: The bulk loader is by far the fastest method for importing large datasets into a new cluster because it bypasses the transactional overhead of live writes and builds the database's internal data structures directly.
 
 ##### 5.3.2. Incremental Updates: Dgraph Live Loader
 
-* **When to Use**: For all subsequent data loads from CI/CD pipelines into an existing, running Dgraph cluster.
-* **Process**: The `dgraph live` command is run, pointing to the new RDF file(s). The live loader connects to the running cluster and sends mutations to insert the new data. For more details, see the [official Dgraph Live Loader documentation](https://docs.hypermode.com/dgraph/admin/live-loader).
-* **Rationale**: The live loader is designed specifically to import data into a running Dgraph instance. It sends mutations through the standard API, which means it respects all transactional and consistency guarantees. Its upsert capability, driven by the `@id` directive in the schema, is essential for correctly merging and deduplicating data over time without requiring the ETL process to be aware of the data already in the database.
+*   **When to Use**: For all subsequent data loads from CI/CD pipelines into an existing, running Dgraph cluster.
+*   **Process**: The `dgraph live` command is run, pointing to the new RDF file(s). The live loader connects to the running cluster and sends mutations to insert the new data. For more details, see the [official Dgraph Live Loader documentation](https://docs.hypermode.com/dgraph/admin/live-loader).
+*   **Rationale**: The live loader is designed specifically to import data into a running Dgraph instance. It sends mutations through the standard API, which means it respects all transactional and consistency guarantees. Its upsert capability, driven by the `@id` directive in the schema, is essential for correctly merging and deduplicating data over time without requiring the ETL process to be aware of the data already in the database.
 
 ##### 5.3.3. The Deduplication and Upsert Mechanism in Practice
 
@@ -423,14 +464,14 @@ By leveraging the `@id` directive in the augmented schema, the responsibility fo
 
 The extractor script will be developed in a **Node.js/TypeScript** environment. This choice allows the project to directly leverage the powerful, mature, and well-maintained libraries from The Guild's open-source ecosystem. The following table summarizes the key tools and their roles in a modern GraphQL stack.
 
-| Tool                  |Documentation                                                                  | Description                                                                                                                                              |
-| :---                  |:---                                                                           | :---                                                                                                                                                     |
-| **GraphQL Hive**      |[the-guild.dev/graphql/hive](https://the-guild.dev/graphql/hive)               | A schema registry for managing federated graphs, including features for monitoring, analytics, and detecting breaking changes.                           |
-| **GraphQL Mesh**      |[the-guild.dev/graphql/mesh](https://the-guild.dev/graphql/mesh)               | A library for creating a unified GraphQL API from multiple, disparate sources like REST, gRPC, or other GraphQL schemas. Can act as a federated gateway. |
-| **GraphQL CodeGen**   |[the-guild.dev/graphql/codegen](https://the-guild.dev/graphql/codegen)         | A tool that generates code (e.g., TypeScript types, React hooks) from a GraphQL schema and operations, ensuring type safety.                             |
-| **GraphQL Tools**     |[the-guild.dev/graphql/tools](https://the-guild.dev/graphql/tools)             | A set of low-level, modular utilities for building, stitching, and mocking GraphQL schemas in a schema-first approach.                                   |
-| **GraphQL Inspector** |[the-guild.dev/graphql/inspector](https://the-guild.dev/graphql/inspector)     | A tool for validating schemas, detecting breaking changes, and ensuring consistency between schemas and client-side operations.                          |
-| **GraphQL Yoga**      |[the-guild.dev/graphql/yoga-server](https://the-guild.dev/graphql/yoga-server) | A fully-featured, performant, and extendable GraphQL server for Node.js, often used to serve schemas created with GraphQL Tools.                         |
+| Tool |Documentation | Description |
+| :--- |:--- | :--- |
+| **GraphQL Hive** |[the-guild.dev/graphql/hive](https://the-guild.dev/graphql/hive) | A schema registry for managing federated graphs, including features for monitoring, analytics, and detecting breaking changes. |
+| **GraphQL Mesh** |[the-guild.dev/graphql/mesh](https://the-guild.dev/graphql/mesh) | A library for creating a unified GraphQL API from multiple, disparate sources like REST, gRPC, or other GraphQL schemas. Can act as a federated gateway. |
+| **GraphQL CodeGen** |[the-guild.dev/graphql/codegen](https://the-guild.dev/graphql/codegen) | A tool that generates code (e.g., TypeScript types, React hooks) from a GraphQL schema and operations, ensuring type safety. |
+| **GraphQL Tools** |[the-guild.dev/graphql/tools](https://the-guild.dev/graphql/tools) | A set of low-level, modular utilities for building, stitching, and mocking GraphQL schemas in a schema-first approach. |
+| **GraphQL Inspector** |[the-guild.dev/graphql/inspector](https://the-guild.dev/graphql/inspector) | A tool for validating schemas, detecting breaking changes, and ensuring consistency between schemas and client-side operations. |
+| **GraphQL Yoga** |[the-guild.dev/graphql/yoga-server](https://the-guild.dev/graphql/yoga-server) | A fully-featured, performant, and extendable GraphQL server for Node.js, often used to serve schemas created with GraphQL Tools. |
 
 This project will primarily use `@graphql-tools/load` for schema and document loading, and the core `graphql` library for AST manipulation. However, the other tools are noted here as they form the strategic context for the overall architecture.
 
@@ -460,23 +501,25 @@ During the transformation step, data should be buffered in memory before being w
 
 All network clients interacting with the GUAC and Dgraph APIs must be wrapped in a robust error-handling layer. This layer will implement:
 
-* **Exponential Backoff & Retries**: For transient network errors or temporary server-side errors (HTTP 5xx).
-* **Rate Limiting Awareness**: The client must gracefully handle HTTP 429 "Too Many Requests" responses by pausing requests for the duration specified in the `Retry-After` header.
+*   **Exponential Backoff & Retries**: For transient network errors or temporary server-side errors (HTTP 5xx).
+*   **Rate Limiting Awareness**: The client must gracefully handle HTTP 429 "Too Many Requests" responses by pausing requests for the duration specified in the `Retry-After` header.
 
 #### 6.3. Configuration and Operationalization
 
 For operational flexibility and automation in CI/CD environments, all tunable parameters will be configurable via both command-line flags and environment variables.
 
-| Parameter Name          | CLI Flag              | Environment Variable              | Description                                                   | Default Value |
-| :---                    | :---                  | :---                              | :---                                                          | :--- |
-| **Source Endpoint URL** | `--source-url`        | `GUAC_TO_DGRAPH_SOURCE_URL`       | The URL of the source GUAC GraphQL API. | *(required)*        |
-| **Source Auth Token**   | `--source-auth-token` | `GUAC_TO_DGRAPH_SOURCE_TOKEN`     | Bearer token for authenticating with the source API. | `""`   |
-| **Schema File Path**    | `--schema-file`       | `GUAC_TO_DGRAPH_SCHEMA_FILE`      | Path to a local SDL file. If not provided, use introspection. | *(optional)* |
-| **Schema Config Path**  | `--schema-config`     | `GUAC_TO_DGRAPH_SCHEMA_CONFIG`    | Path to a YAML file defining schema augmentations.            | `""` |
-| **Query Files Path**    | `--query-files-path`  | `GUAC_TO_DGRAPH_QUERY_FILES_PATH` | Path to the directory containing `.graphql` query files.      | `"./queries"` |
-| **Output File Path**    | `--output-file`       | `GUAC_TO_DGRAPH_OUTPUT_FILE`      | Path for the generated compressed RDF file.                   | `"./output.rdf.gz"` |
-| **Parallelism Level**   | `--parallelism`       | `GUAC_TO_DGRAPH_PARALLELISM`      | The number of concurrent worker processes.                    | `8` |
-| **Log Level**           | `--log-level`         | `GUAC_TO_DGRAPH_LOG_LEVEL`        | Logging verbosity (debug, info, warn, error).                 | `"info"` |
+| Parameter Name | CLI Flag | Environment Variable | Description | Default Value |
+| :--- | :--- | :--- | :--- | :--- |
+| **Source Endpoint URL** | `--source-url` | `GUAC_TO_DGRAPH_SOURCE_URL` | The URL of the source GUAC GraphQL API. | *(required)* |
+| **Source Auth Token** | `--source-auth-token`| `GUAC_TO_DGRAPH_SOURCE_TOKEN` | Bearer token for authenticating with the source API. | `""` |
+| **Schema File Path** | `--schema-file` | `GUAC_TO_DGRAPH_SCHEMA_FILE` | Path to a local SDL file. If not provided, use introspection. | *(optional)* |
+| **Schema Config Path** | `--schema-config` | `GUAC_TO_DGRAPH_SCHEMA_CONFIG` | Path to a YAML file defining schema augmentations. | `""` |
+| **Query Files Path** | `--query-files-path` | `GUAC_TO_DGRAPH_QUERY_FILES_PATH`| Path to the directory containing `.graphql` query files. | `"./queries"` |
+| **Output File Path** | `--output-file` | `GUAC_TO_DGRAPH_OUTPUT_FILE` | Path for the generated compressed RDF file. | `"./output.rdf.gz"` |
+| **Parallelism Level** | `--parallelism` | `GUAC_TO_DGRAPH_PARALLELISM` | The number of concurrent worker processes. | `8` |
+| **Log Level** | `--log-level` | `GUAC_TO_DGRAPH_LOG_LEVEL` | Logging verbosity (debug, info, warn, error). | `"info"` |
+
+In practice, this entire ETL pipeline is operated via the Spoke's `Makefile`, adhering to Graphtastic platform conventions. The extractor tool is containerized and invoked by a `make seed` target. The configuration parameters defined above are passed to the container via the Spoke's `compose.yaml` and `.env` files. This ensures the Spoke's data lifecycle is self-contained, reproducible, and seamlessly integrated into the overall developer control plane.
 
 ### 7. Post-Migration Validation & Integrity Audits
 
@@ -486,9 +529,9 @@ After a load operation, it is crucial to verify the integrity and completeness o
 
 The validation framework consists of three categories of tests:
 
-1. **Node Completeness**: Verifies that all independent entities were transferred (validates Stage 1).
-2. **Edge Integrity**: Confirms that the relationships between nodes were correctly reconstructed (validates Stage 2).
-3. **Deduplication**: Confirms that the core aggregation logic was successful by ensuring entities from multiple sources are represented only once.
+1.  **Node Completeness**: Verifies that all independent entities were transferred (validates Stage 1).
+2.  **Edge Integrity**: Confirms that the relationships between nodes were correctly reconstructed (validates Stage 2).
+3.  **Deduplication**: Confirms that the core aggregation logic was successful by ensuring entities from multiple sources are represented only once.
 
 #### 7.2. Validation Queries: Completeness, Integrity, and Deduplication
 
@@ -543,10 +586,10 @@ This architecture provides a robust, high-performance, and reusable solution for
 
 #### 8.1. Summary of Architectural Recommendations
 
-* **Adopt the Decoupled, File-Based Pipeline**: For maximum resilience and performance.
-* **Synthesize Canonical Identifiers**: Do not use the source `id` field. Synthesize new IDs from natural keys to enable deduplication.
-* **Implement Schema Augmentation**: Programmatically inject Dgraph's `@id` and `@search` directives to create a high-performance target.
-* **Use High-Fidelity Pre-defined Queries**: Leverage the source project's own queries for reliability and low maintenance.
+*   **Adopt the Decoupled, File-Based Pipeline**: For maximum resilience and performance.
+*   **Synthesize Canonical Identifiers**: Do not use the source `id` field. Synthesize new IDs from natural keys to enable deduplication.
+*   **Implement Schema Augmentation**: Programmatically inject Dgraph's `@id` and `@search` directives to create a high-performance target.
+*   **Use High-Fidelity Pre-defined Queries**: Leverage the source project's own queries for reliability and low maintenance.
 
 #### 8.2. Future Enhancement: Incremental (Delta) Migrations
 
@@ -562,9 +605,9 @@ While this batch pipeline creates an invaluable analytical store, a more advance
 
 The Guild is a collective of open-source developers who maintain many of the most critical libraries in the GraphQL JavaScript ecosystem. Their philosophy of modular, unopinionated, and spec-compliant tools makes their libraries a perfect fit for building this general-purpose migration pipeline.
 
-* **GraphQL Tools (`@graphql-tools/`)**: This "swiss army knife" provides the essential, low-level primitives for programmatically interacting with GraphQL. Its `loadSchema` and `loadDocuments` functions are central to the extractor's ability to reliably ingest the source schema and queries.
-* **GraphQL Mesh**: While not used in the initial version of this pipeline, GraphQL Mesh is a powerful tool for composing disparate data sources (REST, gRPC, databases) into a federated GraphQL schema. Future iterations of this data interchange framework could use Mesh as a powerful, declarative extractor component.
-* **GraphQL Hive & Hive Gateway**: Hive is an open-source schema registry for managing federated graphs, and Hive Gateway is a high-performance federation runtime. These tools represent the future state of this architecture should it evolve towards a real-time federated model as described in Section 8.3.
+*   **GraphQL Tools (`@graphql-tools/`)**: This "swiss army knife" provides the essential, low-level primitives for programmatically interacting with GraphQL. Its `loadSchema` and `loadDocuments` functions are central to the extractor's ability to reliably ingest the source schema and queries.
+*   **GraphQL Mesh**: While not used in the initial version of this pipeline, GraphQL Mesh is a powerful tool for composing disparate data sources (REST, gRPC, databases) into a federated GraphQL schema. Future iterations of this data interchange framework could use Mesh as a powerful, declarative extractor component.
+*   **GraphQL Hive & Hive Gateway**: Hive is an open-source schema registry for managing federated graphs, and Hive Gateway is a high-performance federation runtime. These tools represent the future state of this architecture should it evolve towards a real-time federated model as described in Section 8.3.
 
 By building on the Node.js/TypeScript stack, this project gains access to this entire powerful, open-source, and well-supported ecosystem.
 
@@ -574,41 +617,41 @@ This appendix provides a curated and categorized list of resources referenced th
 
 ##### GraphQL Foundational Concepts & Specifications
 
-* [**GraphQL Official Specification**](https://spec.graphql.org/draft/) - The formal, canonical specification for the GraphQL language. Essential for understanding the core mechanics of the type system, query execution, and introspection.
-* [**Schemas and Types**](https://graphql.org/learn/schema/) - The official introduction to the GraphQL Schema Definition Language (SDL), including object types, scalars, and interfaces.
-* [**Introspection**](https://graphql.org/learn/introspection/) - The official documentation explaining how GraphQL's introspection system works, allowing a schema to be queried for its own structure. This is the mechanism that powers the pipeline's automated schema discovery.
-* [**Pagination**](https://graphql.org/learn/pagination/) - A high-level overview of GraphQL pagination concepts, including the arguments for using cursor-based pagination over offset-based methods for large, dynamic datasets.
+*   [**GraphQL Official Specification**](https://spec.graphql.org/draft/) - The formal, canonical specification for the GraphQL language. Essential for understanding the core mechanics of the type system, query execution, and introspection.
+*   [**Schemas and Types**](https://graphql.org/learn/schema/) - The official introduction to the GraphQL Schema Definition Language (SDL), including object types, scalars, and interfaces.
+*   [**Introspection**](https://graphql.org/learn/introspection/) - The official documentation explaining how GraphQL's introspection system works, allowing a schema to be queried for its own structure. This is the mechanism that powers the pipeline's automated schema discovery.
+*   [**Pagination**](https://graphql.org/learn/pagination/) - A high-level overview of GraphQL pagination concepts, including the arguments for using cursor-based pagination over offset-based methods for large, dynamic datasets.
 
 ##### GraphQL Architectural Patterns & Best Practices
 
-* [**Global Object Identification**](https://graphql.org/learn/global-object-identification/) - The official documentation page for the `Node` interface convention, which is the cornerstone of modern client-side caching and data refetching.
-* [**GraphQL Global Object Identification Specification (Relay)**](https://relay.dev/graphql/objectidentification.htm) - The formal specification for the Global Object Identification pattern, detailing the contract for the `Node` interface and the `node` root field.
-* [**How to implement Global Object Identification**](https://sophiabits.com/blog/how-to-implement-global-object-identification) - A practical guide on strategies for creating globally unique IDs, including the base64 encoding pattern referenced in this document.
-* [**Caching**](https://graphql.org/learn/caching/) - The official documentation explaining the role of unique identifiers in enabling client-side caching and data normalization.
-* [**GraphQL Federation**](https://graphql.org/learn/federation/) - An introduction to the concept of GraphQL Federation, the architectural pattern for composing a unified supergraph from multiple independent subgraphs. This is the strategic evolution path for this architecture.
-* [**Why You Should Disable GraphQL Introspection In Production**](https://www.apollographql.com/blog/why-you-should-disable-graphql-introspection-in-production) - A security-focused article explaining the rationale for disabling introspection in production environments, justifying the pipeline's need for a file-based schema fallback.
+*   [**Global Object Identification**](https://graphql.org/learn/global-object-identification/) - The official documentation page for the `Node` interface convention, which is the cornerstone of modern client-side caching and data refetching.
+*   [**GraphQL Global Object Identification Specification (Relay)**](https://relay.dev/graphql/objectidentification.htm) - The formal specification for the Global Object Identification pattern, detailing the contract for the `Node` interface and the `node` root field.
+*   [**How to implement Global Object Identification**](https://sophiabits.com/blog/how-to-implement-global-object-identification) - A practical guide on strategies for creating globally unique IDs, including the base64 encoding pattern referenced in this document.
+*   [**Caching**](https://graphql.org/learn/caching/) - The official documentation explaining the role of unique identifiers in enabling client-side caching and data normalization.
+*   [**GraphQL Federation**](https://graphql.org/learn/federation/) - An introduction to the concept of GraphQL Federation, the architectural pattern for composing a unified supergraph from multiple independent subgraphs. This is the strategic evolution path for this architecture.
+*   [**Why You Should Disable GraphQL Introspection In Production**](https://www.apollographql.com/blog/why-you-should-disable-graphql-introspection-in-production) - A security-focused article explaining the rationale for disabling introspection in production environments, justifying the pipeline's need for a file-based schema fallback.
 
 ##### Project-Specific Technologies: GUAC & Dgraph
 
-* [**GUAC GitHub Repository**](https://github.com/guacsec/guac) - The official source code and community hub for the Graph for Understanding Artifact Composition (GUAC) project.
-* [**GUAC GraphQL Documentation**](https://docs.guac.sh/graphql/) - The official documentation for the GUAC GraphQL API, including schema details and query examples.
-* [**GUAC Ontology**](https://docs.guac.sh/guac-ontology/) - A detailed explanation of the "nouns" and "verbs" that make up the GUAC data model, which directly informs the pipeline's two-stage extraction strategy.
-* [**Dgraph GraphQL API Overview**](https://docs.hypermode.com/dgraph/graphql/overview) - The main documentation page for Dgraph's native GraphQL functionality.
+*   [**GUAC GitHub Repository**](https://github.com/guacsec/guac) - The official source code and community hub for the Graph for Understanding Artifact Composition (GUAC) project.
+*   [**GUAC GraphQL Documentation**](https://docs.guac.sh/graphql/) - The official documentation for the GUAC GraphQL API, including schema details and query examples.
+*   [**GUAC Ontology**](https://docs.guac.sh/guac-ontology/) - A detailed explanation of the "nouns" and "verbs" that make up the GUAC data model, which directly informs the pipeline's two-stage extraction strategy.
+*   [**Dgraph GraphQL API Overview**](https://docs.hypermode.com/dgraph/graphql/overview) - The main documentation page for Dgraph's native GraphQL functionality.
 
 ##### The Guild's Ecosystem & Tooling
 
-* [**GraphQL Tools**](https://the-guild.dev/graphql/tools) - The official homepage for GraphQL Tools, the foundational "swiss army knife" library used for programmatic schema and document manipulation.
-* [**Loading GraphQL Schemas (GraphQL Tools)**](https://the-guild.dev/graphql/tools/docs/schema-loading) - The official documentation for the `@graphql-tools/load` functions used to introspect a remote schema.
-* [**Loading GraphQL Documents (GraphQL Tools)**](https://the-guild.dev/graphql/tools/docs/documents-loading) - The official documentation for loading and parsing `.graphql` files, which is the core of the pipeline's high-fidelity query strategy.
-* [**Introducing GraphQL Mesh v1 and Hive Gateway v1**](https://the-guild.dev/graphql/hive/blog/graphql-mesh-v1-hive-gateway-v1) - The blog post detailing the architectural philosophy of The Guild, including the strategic separation of data composition (Mesh) and serving (Gateway).
+*   [**GraphQL Tools**](https://the-guild.dev/graphql/tools) - The official homepage for GraphQL Tools, the foundational "swiss army knife" library used for programmatic schema and document manipulation.
+*   [**Loading GraphQL Schemas (GraphQL Tools)**](https://the-guild.dev/graphql/tools/docs/schema-loading) - The official documentation for the `@graphql-tools/load` functions used to introspect a remote schema.
+*   [**Loading GraphQL Documents (GraphQL Tools)**](https://the-guild.dev/graphql/tools/docs/documents-loading) - The official documentation for loading and parsing `.graphql` files, which is the core of the pipeline's high-fidelity query strategy.
+*   [**Introducing GraphQL Mesh v1 and Hive Gateway v1**](https://the-guild.dev/graphql/hive/blog/graphql-mesh-v1-hive-gateway-v1) - The blog post detailing the architectural philosophy of The Guild, including the strategic separation of data composition (Mesh) and serving (Gateway).
 
 ##### Dgraph Implementation & Administration
 
-* [**Dgraph Bulk Loader Documentation**](https://docs.hypermode.com/dgraph/admin/bulk-loader) - The official documentation for the `dgraph bulk` command, the high-performance offline tool used for the initial population of a new Dgraph cluster.
-* [**Dgraph Live Loader Documentation**](https://docs.hypermode.com/dgraph/admin/live-loader) - The official documentation for the `dgraph live` command, the online tool used for all subsequent, incremental data loads into a running cluster.
-* [**Mutate performance optimization (Dgraph Discuss)**](https://discuss.dgraph.io/t/mutate-performance-optimization/5517) - A critical forum post explaining best practices for optimizing write throughput in Dgraph, including the importance of batching mutations.
-* [**Dgraph Schema Directives Overview**](https://docs.hypermode.com/dgraph/graphql/schema/directives/overview) - The documentation detailing Dgraph-specific GraphQL directives like `@id` and `@search`, which are essential for the schema augmentation strategy.
-* [**Dgraph GraphQL and DQL schemas**](https://docs.hypermode.com/dgraph/graphql/schema/graphql-dql) - A guide explaining how Dgraph's GraphQL schema maps to its underlying DQL (Dgraph Query Language) schema predicates.
+*   [**Dgraph Bulk Loader Documentation**](https://docs.hypermode.com/dgraph/admin/bulk-loader) - The official documentation for the `dgraph bulk` command, the high-performance offline tool used for the initial population of a new Dgraph cluster.
+*   [**Dgraph Live Loader Documentation**](https://docs.hypermode.com/dgraph/admin/live-loader) - The official documentation for the `dgraph live` command, the online tool used for all subsequent, incremental data loads into a running cluster.
+*   [**Mutate performance optimization (Dgraph Discuss)**](https://discuss.dgraph.io/t/mutate-performance-optimization/5517) - A critical forum post explaining best practices for optimizing write throughput in Dgraph, including the importance of batching mutations.
+*   [**Dgraph Schema Directives Overview**](https://docs.hypermode.com/dgraph/graphql/schema/directives/overview) - The documentation detailing Dgraph-specific GraphQL directives like `@id` and `@search`, which are essential for the schema augmentation strategy.
+*   [**Dgraph GraphQL and DQL schemas**](https://docs.hypermode.com/dgraph/graphql/schema/graphql-dql) - A guide explaining how Dgraph's GraphQL schema maps to its underlying DQL (Dgraph Query Language) schema predicates.
 
 ### **Appendix C: Analysis of GUAC Source GraphQL Files**
 
@@ -618,50 +661,50 @@ The migration pipeline's high-fidelity query strategy relies on using the pre-de
 
 This table provides a high-level overview of each schema file and its purpose. Files containing root `Query` definitions are the primary source for the extractor script.
 
-| File Name                      | Description |
-| :---                           | :--- |
-| **`articulation.graphql`**     | Defines the `IsOccurence` type to represent an artifact that is an occurrence of a source or package. |
-| **`backend.graphql`**          | Defines types for backend-specific information, such as the `ID` type used internally by GUAC. |
-| **`builder.graphql`**          | Defines the `Builder` type, representing the entity that builds an artifact. |
-| **`certification.graphql`**    | Defines `CertifyGood` and `CertifyBad` types for trust assertions, and `CertifyScorecard`. **Contains root queries.** |
-| **`certify_vex.graphql`**      | Defines the `CertifyVEXStatement` type for Vulnerability Exploitability eXchange attestations. **Contains root queries.** |
-| **`certify_vuln.graphql`**     | Defines the `CertifyVuln` type, which links a package to a vulnerability. **Contains root queries.** |
-| **`dependency.graphql`**       | Defines the `IsDependency` type to represent a dependency between two packages. **Contains root queries.** |
-| **`equality.graphql`**         | Defines `PkgEqual`, `HashEqual`, and `VulnEqual` types for asserting that two entities are the same. **Contains root queries.** |
-| **`license.graphql`**          | Defines `License` and `CertifyLegal` types for software license information. **Contains root queries.** |
-| **`occurrence.graphql`**       | Defines `IsOccurrence` type, linking an artifact to a package/source. **Contains root queries.** |
-| **`package.graphql`**          | Defines the pURL-based `Package` type and its components (`PackageName`, `PackageVersion`, etc.). **Contains root queries.** |
-| **`point_of_contact.graphql`** | Defines types for specifying a point of contact for a package, source, or artifact. **Contains root queries.** |
-| **`slsa.graphql`**             | Defines types for SLSA (Supply-chain Levels for Software Artifacts) attestations. **Contains root queries.** |
-| **`source.graphql`**           | Defines the `Source` type for source code repositories and their components. **Contains root queries.** |
-| **`vulnerability.graphql`**    | Defines vulnerability types (`OSV`, `CVE`, `GHSA`) and a `Vulnerability` union. **Contains root queries.** |
+| File Name | Description |
+| :--- | :--- |
+| **`articulation.graphql`** | Defines the `IsOccurence` type to represent an artifact that is an occurrence of a source or package. |
+| **`backend.graphql`** | Defines types for backend-specific information, such as the `ID` type used internally by GUAC. |
+| **`builder.graphql`** | Defines the `Builder` type, representing the entity that builds an artifact. |
+| **`certification.graphql`** | Defines `CertifyGood` and `CertifyBad` types for trust assertions, and `CertifyScorecard`. **Contains root queries.** |
+| **`certify_vex.graphql`** | Defines the `CertifyVEXStatement` type for Vulnerability Exploitability eXchange attestations. **Contains root queries.** |
+| **`certify_vuln.graphql`** | Defines the `CertifyVuln` type, which links a package to a vulnerability. **Contains root queries.** |
+| **`dependency.graphql`** | Defines the `IsDependency` type to represent a dependency between two packages. **Contains root queries.** |
+| **`equality.graphql`** | Defines `PkgEqual`, `HashEqual`, and `VulnEqual` types for asserting that two entities are the same. **Contains root queries.** |
+| **`license.graphql`** | Defines `License` and `CertifyLegal` types for software license information. **Contains root queries.** |
+| **`occurrence.graphql`** | Defines `IsOccurrence` type, linking an artifact to a package/source. **Contains root queries.** |
+| **`package.graphql`** | Defines the pURL-based `Package` type and its components (`PackageName`, `PackageVersion`, etc.). **Contains root queries.** |
+| **`point_of_contact.graphql`**| Defines types for specifying a point of contact for a package, source, or artifact. **Contains root queries.** |
+| **`slsa.graphql`** | Defines types for SLSA (Supply-chain Levels for Software Artifacts) attestations. **Contains root queries.** |
+| **`source.graphql`** | Defines the `Source` type for source code repositories and their components. **Contains root queries.** |
+| **`vulnerability.graphql`** | Defines vulnerability types (`OSV`, `CVE`, `GHSA`) and a `Vulnerability` union. **Contains root queries.** |
 
 #### **C.2. Detailed GUAC Query Index**
 
 This table lists every root query available in the GUAC API, its source file, and a human-readable description of what it retrieves. This serves as a definitive catalog for the extractor's pre-defined query library.
 
-| Query Name            | Source File               | Description |
-| :---                  | :---                      | :--- |
-| `certifyGood`         | `certification.graphql`   | Finds `CertifyGood` attestations based on a subject, time, or other criteria. |
-| `certifyBad`          | `certification.graphql`   | Finds `CertifyBad` attestations based on a subject, time, or other criteria. |
-| `scorecards`          | `certification.graphql`   | Retrieves OpenSSF Scorecard results for a given source repository. |
-| `certifyVEXStatement` | `certify_vex.graphql`     | Finds `CertifyVEXStatement` attestations based on subject, vulnerability, or time. |
-| `certifyVuln`         | `certify_vuln.graphql`    | Finds `CertifyVuln` records linking packages to vulnerabilities. |
-| `isDependency`        | `dependency.graphql`      | Finds dependency relationships between packages. |
-| `pkgEqual`            | `equality.graphql`        | Finds `PkgEqual` attestations that link two different package identifiers as being the same. |
-| `hashEqual`           | `equality.graphql`        | Finds `HashEqual` attestations that link two different artifacts as being the same. |
-| `vulnEqual`           | `equality.graphql`        | Finds `VulnEqual` attestations that link two different vulnerability IDs as being the same. |
-| `licenses`            | `license.graphql`         | Finds `License` objects based on a filter. |
-| `certifyLegal`        | `license.graphql`         | Finds `CertifyLegal` attestations linking subjects to licenses. |
-| `isOccurrence`        | `occurrence.graphql`      | Finds `IsOccurrence` attestations linking artifacts to packages or sources. |
-| `packages`            | `package.graphql`         | Finds `Package` objects based on a pURL filter. |
-| `hasSourceAt`         | `package.graphql`         | Finds `HasSourceAt` attestations linking packages to their source repositories. |
-| `hasSBOM`             | `package.graphql`         | Finds SBOM (Software Bill of Materials) attestations for a given subject. |
-| `pointOfContact`      |`point_of_contact.graphql` | Finds Point of Contact information (email, info, justification) for a given subject.|
-| `hasSLSA`             | `slsa.graphql`            | Finds SLSA provenance attestations for a given subject. |
-| `sources`             | `source.graphql`          | Finds `Source` objects based on a filter. |
-| `artifacts`           | `source.graphql`          | Finds `Artifact` objects based on their algorithm and digest. |
-| `osv`                 | `vulnerability.graphql`   | Finds `OSV` vulnerability objects based on their ID. |
-| `cve`                 | `vulnerability.graphql`   | Finds `CVE` vulnerability objects based on their ID. |
-| `ghsa`                | `vulnerability.graphql`   | Finds `GHSA` vulnerability objects based on their ID. |
-| `vulnerabilities`     |`vulnerability.graphql`    | Finds vulnerabilities of any type, allowing filtering by a specific vulnerability ID without knowing its type. |
+| Query Name | Source File | Description |
+| :--- | :--- | :--- |
+| `certifyGood` | `certification.graphql` | Finds `CertifyGood` attestations based on a subject, time, or other criteria. |
+| `certifyBad` | `certification.graphql` | Finds `CertifyBad` attestations based on a subject, time, or other criteria. |
+| `scorecards` | `certification.graphql` | Retrieves OpenSSF Scorecard results for a given source repository. |
+| `certifyVEXStatement` | `certify_vex.graphql` | Finds `CertifyVEXStatement` attestations based on subject, vulnerability, or time. |
+| `certifyVuln` | `certify_vuln.graphql` | Finds `CertifyVuln` records linking packages to vulnerabilities. |
+| `isDependency` | `dependency.graphql` | Finds dependency relationships between packages. |
+| `pkgEqual` | `equality.graphql` | Finds `PkgEqual` attestations that link two different package identifiers as being the same. |
+| `hashEqual` | `equality.graphql` | Finds `HashEqual` attestations that link two different artifacts as being the same. |
+| `vulnEqual` | `equality.graphql` | Finds `VulnEqual` attestations that link two different vulnerability IDs as being the same. |
+| `licenses` | `license.graphql` | Finds `License` objects based on a filter. |
+| `certifyLegal` | `license.graphql` | Finds `CertifyLegal` attestations linking subjects to licenses. |
+| `isOccurrence` | `occurrence.graphql` | Finds `IsOccurrence` attestations linking artifacts to packages or sources. |
+| `packages` | `package.graphql` | Finds `Package` objects based on a pURL filter. |
+| `hasSourceAt` | `package.graphql` | Finds `HasSourceAt` attestations linking packages to their source repositories. |
+| `hasSBOM` | `package.graphql` | Finds SBOM (Software Bill of Materials) attestations for a given subject. |
+| `pointOfContact` |`point_of_contact.graphql`| Finds Point of Contact information (email, info, justification) for a given subject.|
+| `hasSLSA` | `slsa.graphql` | Finds SLSA provenance attestations for a given subject. |
+| `sources` | `source.graphql` | Finds `Source` objects based on a filter. |
+| `artifacts` | `source.graphql` | Finds `Artifact` objects based on their algorithm and digest. |
+| `osv` | `vulnerability.graphql` | Finds `OSV` vulnerability objects based on their ID. |
+| `cve` | `vulnerability.graphql` | Finds `CVE` vulnerability objects based on their ID. |
+| `ghsa` | `vulnerability.graphql` | Finds `GHSA` vulnerability objects based on their ID. |
+| `vulnerabilities` |`vulnerability.graphql` | Finds vulnerabilities of any type, allowing filtering by a specific vulnerability ID without knowing its type. |
