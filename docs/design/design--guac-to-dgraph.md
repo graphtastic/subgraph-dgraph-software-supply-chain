@@ -71,40 +71,35 @@ This document outlines the architectural design for a high-performance, schema-d
 The following diagram illustrates the end-to-end vision, from individual open source projects generating supply chain metadata to the aggregation of that data into a unified, federated graph.
 
 ```mermaid
-graph TD
-    subgraph "CI Pipeline for each OSS Project"
-        direction LR
-        step1[1. Generate SBOM] --> step2{2. Ingest & Enrich in GUAC}
-        step2 --> step3[3. Export Graph as Compressed RDF]
-        step3 --> step4((4. Publish RDF as Release Artifact))
-    end
-
-    subgraph "OSS Projects"
-        prj1[Project A]
-        prj2[Project B]
-        prj3[Project C]
-        prj4[...]
-    end
-
-    subgraph "Centralized Aggregation"
+graph LR
+    subgraph "Stage 1: Distributed Data Generation (Many Sources)"
         direction TB
-        loader[5. Bulk/Live Load RDFs] --> dgraph[6. Dgraph-backed Subgraph]
+        subgraph OSS Projects
+            P1[Project A]
+            P2[Project B]
+            P3[...]
+        end
+        
+        CI{"CI Process per Project<br/>(GUAC Ingest & RDF Export)"}
+        
+        P1 --> CI
+        P2 --> CI
+        P3 --> CI
+
+        RDFs(Published RDF Artifacts)
+        CI --> RDFs
     end
 
-    subgraph "Unified API"
-        direction TB
-        supergraph[7. Federated Supergraph]
-        gateway[The Guild Hive/Mesh Gateway]
-        supergraph --> gateway
+    subgraph "Stage 2: Centralized Aggregation (One Sink)"
+        Loader["Internal ETL Pipeline<br/>(Dgraph Loaders)"] --> Dgraph[(Dgraph Database)]
     end
 
-    prj1 --> step1
-    prj2 --> step1
-    prj3 --> step1
-    prj4 --> step1
+    subgraph "Stage 3: Unified API (One Endpoint)"
+        Spoke["Dgraph-backed Spoke<br/>subgraph-dgraph-software-supply-chain"] --> Gateway(Supergraph Gateway)
+    end
 
-    step4 --> loader
-    dgraph --> supergraph
+    RDFs -- "Input to" --> Loader
+    Dgraph -- "Serves data via" --> Spoke
 ```
 
 While the immediate demonstrator of this architecture is the GUAC-to-Dgraph migration, the underlying patterns and tooling are designed to be general-purpose, establishing a framework for leveraging GraphQL as a *lingua franca* for data interchange between disparate graph systems.
@@ -244,31 +239,28 @@ The following diagram illustrates this process, from acquiring the source schema
 graph TD
     subgraph "1. Schema Acquisition"
         A[GUAC GraphQL API]
-        C[GUAC .graphql file]
-        B{GUAC Schema SDL}
+        C[GUAC .graphql File]
+        B([GUAC Schema SDL])
         A -- "Introspection" --> B
         C -- "File Load" --> B
     end
 
     subgraph "2. Schema Transformation"
-        D[Augmentation Script]
-        E["Augmentation Config&#10;(e.g., YAML)"]
-        F{"Augmented GUAC Schema&#10;(with @id, @search)"}
-        E -- "Rules" --> D
-        D -- "Output" --> F
+        D{Augmentation Script}
+        E([Augmentation Config<br/>e.g., YAML])
+        F([Augmented Schema<br/>with @id, @search, @key])
+        E -- "Provides rules to" --> D
+        B -- "Input to" --> D
+        D -- "Outputs" --> F
     end
 
     subgraph "3. Dgraph Provisioning"
-        G[Dgraph Instance]
+        G[(Dgraph Instance)]
+        H(Dgraph GraphQL Endpoint)
+        F -- "POST /admin/schema" --> G
+        G -- "Generates" --> H
     end
-
-    subgraph "4. Result"
-        H[("Dgraph GraphQL Endpoint&#10;with Augmented GUAC Schema")]
-    end
-
-    B -- "Input" --> D
-    F -- "POST /admin/schema" --> G
-    G -- "Generates" --> H```
+```
 
 #### 4.1. Automated Provisioning via Schema Definition Language (SDL)
 
@@ -317,66 +309,71 @@ Before detailing the internal ETL process, it's important to visualize how this 
 
 ```mermaid
 graph TD
-    subgraph " "
-        direction LR
-        SupergraphGateway[Supergraph Gateway]
-        SupergraphGateway -- "GraphQL Query" --> SpokeEndpoint
+    %% Diagram illustrating the "Spoke as a Black Box" principle.
+    
+    SupergraphGateway(Supergraph Gateway)
+
+    subgraph "Spoke Boundary [subgraph-dgraph-software-supply-chain]"
+        direction TB
+        
+        SpokeEndpoint("Public GraphQL Endpoint<br/>:8080/graphql")
+        
+        %% --- Internal ETL Process Components ---
+        GUAC[GUAC API Source] --> Extractor[Extractor Tool]
+        Extractor --> RDF([RDF Artifact])
+        RDF --> Loader[Dgraph Loader]
+        Loader --> Dgraph[(Dgraph Cluster)]
+        %% -------------------------------------
+
+        SpokeEndpoint -- "Serves data from" --> Dgraph
     end
 
-    subgraph "subgraph-dgraph-software-supply-chain (Spoke Boundary)"
-        SpokeEndpoint[":8080/graphql"]
-        Dgraph[(Dgraph Cluster)]
-        SpokeEndpoint -- "Serves from" --> Dgraph
-
-        subgraph "Internal ETL Process (via 'make seed')"
-           GUAC[GUAC API Source] --> Extractor[Extractor Tool]
-           Extractor --> RDF[RDF Artifact]
-           RDF --> Loader[Dgraph Loader]
-           Loader --> Dgraph
-        end
-    end
+    SupergraphGateway -- "Federated GraphQL Query" --> SpokeEndpoint
 ```
+
 The following sections detail the architecture of the 'Internal ETL Process' shown above. The architecture separates data extraction from data loading via an intermediate file-based representation (compressed RDF N-Quads). This modularity makes the pipeline resilient, scalable, and allows for the aggregation of data from multiple GUAC sources before a single load operation.
 
 ```mermaid
-graph TD
-    subgraph "Build & Enrich Pipeline"
-        GUAC1["GUAC Instance 1"]
-        GUAC2["GUAC Instance 2"]
-        GUACN["GUAC Instance N"]
+graph LR
+    %% Diagram showing the decoupled, two-phase ETL process.
+
+    subgraph Sources
+        GUAC1[GUAC Instance 1]
+        GUAC2[GUAC Instance 2]
+        GUACN[...]
     end
 
-    subgraph "Phase 1: Extract & Transform"
-        ExtractorScript["Extractor Script (Node.js/TS)"]
+    subgraph Phase 1: Extract & Transform
+        Extractor{Extractor Script}
     end
 
-    subgraph "Intermediate Storage"
-        RDF1["GUAC1_data.rdf.gz"]
-        RDF2["GUAC2_data.rdf.gz"]
-        RDFN["GUACN_data.rdf.gz"]
+    subgraph Intermediate Artifacts
+        RDF1([GUAC1_data.rdf.gz])
+        RDF2([GUAC2_data.rdf.gz])
+        RDFN([...])
     end
 
-    subgraph "Phase 2: Load"
-        DgraphLoaders{"Dgraph Loaders"}
+    subgraph Phase 2: Load
+        Loader{Dgraph Loaders}
     end
 
-    subgraph "Target Database"
-        Dgraph[("Persistent Dgraph Cluster")]
+    subgraph Target Database
+        Dgraph[(Dgraph Cluster)]
     end
 
-    GUAC1 --> ExtractorScript
-    GUAC2 --> ExtractorScript
-    GUACN --> ExtractorScript
+    GUAC1 --> Extractor
+    GUAC2 --> Extractor
+    GUACN --> Extractor
 
-    ExtractorScript --> RDF1
-    ExtractorScript --> RDF2
-    ExtractorScript --> RDFN
+    Extractor --> RDF1
+    Extractor --> RDF2
+    Extractor --> RDFN
 
-    RDF1 --> DgraphLoaders
-    RDF2 --> DgraphLoaders
-    RDFN --> DgraphLoaders
+    RDF1 --> Loader
+    RDF2 --> Loader
+    RDFN --> Loader
 
-    DgraphLoaders --> Dgraph
+    Loader --> Dgraph
 ```
 
 #### 5.2. Phase 1: Data Extraction & Transformation (GUAC API → RDF Files)
