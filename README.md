@@ -118,6 +118,8 @@ This project uses a modular, multi-stack Docker Compose architecture orchestrate
 
 ### 3.2. Getting Started
 
+**WARNING: this doesn't work yet! (WIP)**
+
 1. **Clone the repository:**
 
     ```bash
