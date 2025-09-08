@@ -169,12 +169,12 @@ A deep understanding of the GUAC schema's structure and semantics is essential t
 
 The following diagrams from the GUAC documentation are particularly useful for understanding the core concepts.
 
-*Figure 1: High-level schematic of the GUAC ontology, illustrating the relationships between the core "noun" and "verb" components.*
-![GUAC Nouns and Verbs Diagram](docs/images/guac-ontology-high-level.png)
+##### Figure 1: GUAC Ontology evidence tree.
+![GUAC Evidence Tree](../images/guac-ontology-evidence-tree.png)
 *Source: GUAC Ontology Documentation (https://docs.guac.sh/guac-ontology/)*
 
-*Figure 2: A more detailed entity-relationship diagram of the GUAC graph.*
-![GUAC Connections Diagram](docs/images/guac-entity-relationship-diagram.png)
+##### Figure 2:Package Tree Data Model.
+![GUAC Package Version Data Model](../images/guac-package-tree-datamodel.png)
 *Source: GUAC GraphQL Documentation (https://docs.guac.sh/graphql/)*
 
 #### 3.1. The GUAC Ontology: Deconstructing Nodes (Nouns) and Edges (Verbs)
@@ -234,6 +234,8 @@ The natural keys identified in the tables above are the cornerstone of the data 
 The "Transform" phase of the ETL process adds significant value by creating a target Dgraph endpoint that is a functional and performance upgrade over the source. This is achieved through automated provisioning and strategic schema augmentation.
 
 The following diagram illustrates this process, from acquiring the source schema to deploying an augmented, high-performance version to Dgraph.
+
+**UPDATE GraphQL Mesh (https://the-guild.dev/graphql/mesh) will serve as the "augmentation script" in the diagram below (TODO: update diagram)**
 
 ```mermaid
 graph TD
