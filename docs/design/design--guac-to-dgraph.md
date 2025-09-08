@@ -179,7 +179,7 @@ The following diagrams from the GUAC documentation are particularly useful for u
 
 #### 3.1. The GUAC Ontology: Deconstructing Nodes (Nouns) and Edges (Verbs)
 
-The GUAC documentation frames its ontology in terms of "nouns" (the core, independent entities) and "verbs" (the evidence-based relationships that connect them). This model aligns perfectly with the architectural need for a two-stage migration that preserves relational integrity. The "nouns" must be ingested in Stage 1 before the "verbs" that connect them can be created in Stage 2.
+The GUAC documentation frames its ontology in terms of "nouns" (the core, independent entities) and "verbs" (the evidence-based relationships that connect them). This model aligns with the architectural need for a two-stage migration that preserves relational integrity. The "nouns" must be ingested in Stage 1 before the "verbs" that connect them can be created in Stage 2.
 
 #### 3.2. Classification of GUAC Types for Staged Migration
 
@@ -600,7 +600,7 @@ While this batch pipeline creates an invaluable analytical store, a more advance
 
 #### A. The Guild's Ecosystem: Rationale for the Technology Stack
 
-The Guild is a collective of open-source developers who maintain many of the most critical libraries in the GraphQL JavaScript ecosystem. Their philosophy of modular, unopinionated, and spec-compliant tools makes their libraries a perfect fit for building this general-purpose migration pipeline.
+The Guild is a collective of open-source developers who maintain many of the most critical libraries in the GraphQL JavaScript ecosystem. Their philosophy of modular, unopinionated, and spec-compliant tools makes their libraries a good fit for building this general-purpose migration pipeline.
 
 *   **GraphQL Tools (`@graphql-tools/`)**: This "swiss army knife" provides the essential, low-level primitives for programmatically interacting with GraphQL. Its `loadSchema` and `loadDocuments` functions are central to the extractor's ability to reliably ingest the source schema and queries.
 *   **GraphQL Mesh**: While not used in the initial version of this pipeline, GraphQL Mesh is a powerful tool for composing disparate data sources (REST, gRPC, databases) into a federated GraphQL schema. Future iterations of this data interchange framework could use Mesh as a powerful, declarative extractor component.
