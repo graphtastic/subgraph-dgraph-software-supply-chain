@@ -105,7 +105,7 @@ graph LR
 
 For a complete breakdown of this architecture, please see the core implementation design:
 
-* [**`./design--guac-to-dgraph.md`**](./design--guac-to-dgraph.md)
+* [**`docs/design/design--guac-to-dgraph.md`**](./docs/design/design--guac-to-dgraph.md)
 
 ## 3. Local Development
 
