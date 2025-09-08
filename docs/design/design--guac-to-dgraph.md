@@ -107,7 +107,7 @@ While the immediate demonstrator of this architecture is the GUAC-to-Dgraph migr
 It is critical to note that this document describes the **internal architecture and data ingestion strategy for the `subgraph-dgraph-software-supply-chain` Spoke**, a component within the broader Graphtastic Platform. The ETL-to-RDF pipeline detailed herein is a deliberate, performance-driven implementation choice for populating this Spoke's stateful backend.
 
 This component serves a dual purpose:
-1.  To act as the reference implementation and **standalone demonstrator for the [CNCF Software Supply Chain Insights initiative](https://github.com/cncf/toc/issues/1709)**.
+1.  To act as one of the reference implementations and as a **standalone demonstrator for the [CNCF Software Supply Chain Insights initiative](https://github.com/cncf/toc/issues/1709)**.
 2.  To function as a fully compliant, federated **Spoke within the Graphtastic supergraph**.
 
 Therefore, its design prioritizes both high-performance bulk data ingestion (as described here) and a federation-compliant GraphQL API as its external contract.
@@ -116,9 +116,9 @@ Therefore, its design prioritizes both high-performance bulk data ingestion (as 
 
 GUAC instances generate invaluable software supply chain metadata. While GUAC can be used in ephemeral CI/CD build cycles, it is also suited for larger, centralized deployments. In either scenario, the default persistence layers may not be designed for the massive scale and complex analytical queries required when aggregating data across an entire organization.
 
-The chosen platform for this persistent graph is Dgraph, a horizontally scalable, distributed GraphQL database. It is designed from the ground up for high-performance graph queries and provides essential features like ACID transactions, consistent replication, and linearizable reads. Dgraph is open source and licensed under the Apache-2.0 license, making it a suitable choice for this project.
+The chosen platform for this persistent graph, aggregated from multiple GUAC isntances is Dgraph, a horizontally scalable, distributed GraphQL database. It is designed from the ground up for high-performance graph queries and provides essential features like ACID transactions, consistent replication, and linearizable reads. Dgraph is open source and licensed under the Apache-2.0 license, making it a suitable choice for this project.
 
-The goal is to create a centralized, persistent Dgraph instance that serves as the canonical, aggregated source of truth for all software supply chain information. This unified graph will enable advanced security analysis, dependency tracking, and vulnerability impact assessment at a scale not possible with isolated GUAC instances.
+The goal is to create a centralized, persistent Dgraph instance that serves as the canonical, aggregated source of truth for software supply chain information. This unified graph will enable advanced security analysis, dependency tracking, and vulnerability impact assessment at a scale not possible with isolated GUAC instances.
 
 #### 1.2. Core Architectural Principles: Decoupling, Fidelity, and Performance
 
