@@ -201,4 +201,12 @@ To understand how this subgraph fits into the larger ecosystem, we highly recomm
 
 ## 5. Contributing
 
-Contributions are welcome! Please see our contributing guidelines for more information on how to get involved. *(Note: Link to be added)*
+Contributions are welcome! Please see our contributing guidelines for more information on how to get involved.
+
+## Licensing
+
+This project is dual-licensed to enable broad code adoption while ensuring our documentation and knowledge base remain open for the community. Project copyright and contributor attribution are managed in our [`NOTICE`](./NOTICE) and [`CONTRIBUTORS.md`](./CONTRIBUTORS.md) files.
+
+* **Code is licensed under [Apache 2.0](https.www.apache.org/licenses/LICENSE-2.0).** This permissive license allows free use in both open-source and commercial products. The full license text is in [`LICENSE.code`](./LICENSE.code).
+
+* **Documentation is licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).** This requires **Attribution** for our contributors and that derivative works are shared back under the same **ShareAlike** terms. The full license text is in [`LICENSE.docs`](./LICENSE.docs).
