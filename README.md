@@ -30,6 +30,7 @@ This subgraph follows a decoupled, schema-driven ETL (Extract, Transform, Load) 
 
 ```mermaid
 graph LR
+
     %% -- DIAGRAM DEFINITION --
 
     %% An external component, the entry point for all queries.
@@ -109,6 +110,108 @@ For a complete breakdown of this architecture, please see the core implementatio
 
 ## 3. Local Development
 
+
+
+### 3.0. Storage Mode: Bind Mounts Only (for now)
+
+Currently, GUAC Postgres data is stored in a local bind-mounted directory (`./dgraph-stack/guac-data`).
+
+**TODO:** Add support for Docker named volumes for GUAC Postgres data.
+
+- Data is always stored in `./dgraph-stack/guac-data` on your host.
+- No Docker volume support for GUAC Postgres yet.
+
+---
+
+### 3.1. Network Architecture: Internal vs. External Access
+
+This project uses two Docker networks for security and modularity:
+
+* **Internal network (`dgraph-net`)**: Used for private communication between Dgraph services (Zero, Alpha, Ratel). Not accessible from outside Docker.
+* **External network (`graphtastic_net`)**: Used to expose selected service endpoints to the host and to other stacks in the Graphtastic platform.
+
+
+**Service network membership:**
+
+| Service         | Internal (`dgraph-net`) | External (`graphtastic_net`) | Host Accessible? | Purpose |
+|-----------------|:----------------------:|:----------------------------:|:----------------:|:--------|
+| dgraph-zero     |           ✔            |              ✗               |        No        | Cluster coordination only |
+| dgraph-alpha    |           ✔            |              ✔               |   Yes (API)      | GraphQL/DQL API, data plane |
+| dgraph-ratel    |           ✔            |              ✔               |   Yes (UI)       | Web UI for admin/dev |
+
+> **How is Ratel accessible from the host?**
+>
+> Ratel is accessible from your host because its service is attached to both the internal `dgraph-net` (for private communication with Dgraph Alpha) **and** the external `graphtastic_net` (which exposes its port to the host and other stacks). The Compose file maps port `8000` to your host, so you can open [http://localhost:8000](http://localhost:8000) in your browser.
+
+<details>
+<summary><strong>How to debug the internal Docker network from the host</strong></summary>
+
+Sometimes you need to inspect or debug services that are only on the internal Docker network (`dgraph-net`). Here are some useful techniques:
+
+**1. Run a temporary debug container on the internal network:**
+
+```bash
+docker run -it --rm --network dgraph-net busybox sh
+# or for more tools:
+docker run -it --rm --network dgraph-net nicolaka/netshoot
+```
+
+You can now use tools like `ping`, `nslookup`, or `curl` to reach other containers by their service name (e.g., `dgraph-zero:5080`, `dgraph-alpha:8080`).
+
+**2. Inspect the network and connected containers:**
+
+```bash
+docker network inspect dgraph-net
+```
+
+This will show which containers are attached and their internal IP addresses.
+
+**3. Exec into a running service container:**
+
+```bash
+docker exec -it <container_name> sh
+# Example:
+docker exec -it dgraph-alpha sh
+```
+
+**4. Port-forward a service for temporary host access:**
+
+If you need to access a service that's only on the internal network, you can use `docker port` or set up a temporary port-forward:
+
+```bash
+# Example: Forward dgraph-zero's HTTP port to your host
+docker run --rm -it --network host alpine/socat TCP-LISTEN:16080,fork TCP:dgraph-zero:6080
+# Now access http://localhost:16080 from your host
+```
+
+These techniques let you debug, inspect, or interact with internal-only services without changing your Compose files.
+
+</details>
+
+**How to access services:**
+
+* **From your host (browser or curl):**
+  * Dgraph Ratel UI: [http://localhost:8000](http://localhost:8000)
+  * Dgraph GraphQL API: [http://localhost:8080/graphql](http://localhost:8080/graphql)
+  * Dgraph DQL API: [http://localhost:8080](http://localhost:8080)
+
+* **From inside a Docker container on `dgraph-net`:**
+  * Use service names: `dgraph-alpha:8080`, `dgraph-zero:5080`, `dgraph-ratel:8000`
+
+* **From inside a Docker container on `graphtastic_net`:**
+  * Use service names: `dgraph-alpha:8080`, `dgraph-ratel:8000`
+  * `dgraph-zero` is **not** available on this network for security/isolation.
+
+**Why this matters:**
+
+* Only the API and UI endpoints you need are exposed to the host and other stacks. All cluster-internal traffic (e.g., Zero <-> Alpha) is isolated for security and reliability.
+
+**Example: Accessing Dgraph from another container**
+
+If you have a service on `graphtastic_net` (e.g., a Mesh gateway), you can connect to Dgraph Alpha at `dgraph-alpha:8080`.
+
+If you are running a script inside the `dgraph-net` network, you can use the same service names, but only `dgraph-alpha` and `dgraph-ratel` are reachable from the external network.
+
 This project uses a modular, multi-stack Docker Compose architecture orchestrated by a central `Makefile` to provide a simple and consistent developer experience.
 
 ### 3.1. Prerequisites
@@ -145,26 +248,72 @@ This project uses a modular, multi-stack Docker Compose architecture orchestrate
     * **Dgraph Ratel UI:** [http://localhost:8000](http://localhost:8000)
     * **Dgraph GraphQL Endpoint:** [http://localhost:8080/graphql](http://localhost:8080/graphql)
 
-5. **Populate with data:**
-    To run the ETL pipeline and seed the Dgraph instance with data from a source GUAC API, run:
+5. **Ingest SBOMs and Run the ETL Pipeline**
 
-    ```bash
-    make seed
-    ```
+To ingest SBOMs and load them into Dgraph, follow these steps:
+
+**Step 1: Place your SBOM files**
+
+Copy your SBOM files (e.g., `.spdx.json`, `.cyclonedx.json`) into the `./sboms` directory:
+
+```bash
+cp /path/to/your/sbom1.spdx.json ./sboms/
+cp /path/to/your/sbom2.cyclonedx.json ./sboms/
+```
+
+**Step 2: Ingest SBOMs into GUAC**
+
+Run the following command to ingest all SBOMs in the `./sboms` directory:
+
+```bash
+make ingest-sboms
+```
+
+**Step 3: Wait for GUAC to finish processing**
+
+Monitor the GUAC containers to ensure ingestion is complete. You can check logs with:
+
+```bash
+docker compose -f compose/guac.yml logs -f guac-collectd guac-api guac-graphql
+```
+
+Once logs indicate processing is finished (or after a reasonable wait), proceed.
+
+**Step 4: Export data from Mesh to RDF (N-Quads)**
+
+Run the extractor script to pull data from the Mesh GraphQL gateway and generate RDF N-Quads:
+
+```bash
+make extract
+```
+
+This will create a compressed RDF file in `./build/guac.rdf.gz`.
+
+**Step 5: Seed Dgraph with the extracted RDF**
+
+The full pipeline (including all steps above) can be run with:
+
+```bash
+make seed
+```
+
+This will clean the environment, bring up all services, ingest SBOMs, extract RDF, and (when implemented) load into Dgraph.
+
+---
 
 6. **Tear down the environment:**
-    To stop all containers and remove the Docker network, run:
+To stop all containers and remove the Docker network, run:
 
-    ```bash
-    make down
-    ```
+```bash
+make down
+```
 
 7. **Perform a full cleanup:**
-    To stop containers and **permanently delete all persistent data**, run:
+To stop containers and **permanently delete all persistent data**, run:
 
-    ```bash
-    make clean
-    ```
+```bash
+make clean
+```
 
 ## 4. Project Documentation & Design Philosophy
 

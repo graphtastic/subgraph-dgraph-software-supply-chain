@@ -1,0 +1,56 @@
+# compose/guac.yml
+
+services:
+  dgraph-zero:
+    image: dgraph/dgraph:latest
+    container_name: dgraph-zero
+    # Storage: bind mount only for now (see README for TODO re: volumes)
+    volumes:
+      - ./dgraph-stack/dgraph/zero:/dgraph
+    ports:
+      - "5080:5080"
+      - "6080:6080"
+    restart: on-failure
+    command: dgraph zero --my=dgraph-zero:5080
+    networks:
+      - dgraph-net
+
+  dgraph-alpha:
+    image: dgraph/dgraph:latest
+    container_name: dgraph-alpha
+    # Storage: bind mount only for now (see README for TODO re: volumes)
+    volumes:
+      - ./dgraph-stack/dgraph/alpha:/dgraph
+    ports:
+      - "8080:8080"
+      - "9080:9080"
+    restart: on-failure
+    command: dgraph alpha --my=dgraph-alpha:7080 --zero=dgraph-zero:5080 --security "whitelist=${DGRAPH_ALPHA_WHITELIST}"
+    depends_on:
+      - dgraph-zero
+    networks:
+      - dgraph-net
+      - graphtastic_net
+
+  dgraph-ratel:
+    image: dgraph/ratel:latest
+    container_name: dgraph-ratel
+    ports:
+      - "8000:8000"
+    restart: on-failure
+    networks:
+      - dgraph-net
+      - graphtastic_net
+
+networks:
+  dgraph-net:
+    driver: bridge
+  graphtastic_net:
+    external: true
+
+# TODO: Add support for Docker named volumes for Dgraph data
+# volumes:
+#   dgraph_data_zero:
+#     external: false
+#   dgraph_data_alpha:
+#     external: false

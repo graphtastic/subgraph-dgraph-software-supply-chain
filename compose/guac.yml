@@ -1,0 +1,71 @@
+# compose/guac.yml
+
+services:
+  guac-postgres:
+    image: postgres:13
+    container_name: guac-postgres
+    networks:
+      - guac_internal_net
+    environment:
+      - POSTGRES_DB=guac
+      - POSTGRES_USER=guac
+      - POSTGRES_PASSWORD=guac
+    # Storage: bind mount only for now (see README for TODO re: volumes)
+    volumes:
+      - ./dgraph-stack/guac-data:/var/lib/postgresql/data
+    restart: always # FIX: Added restart policy for resilience
+
+  guac-nats:
+    image: nats:2.9
+    container_name: guac-nats
+    networks:
+      - guac_internal_net
+    restart: always
+
+  guac-collectd:
+    image: ghcr.io/guacsec/guac-collectd:latest
+    container_name: guac-collectd
+    networks:
+      - guac_internal_net
+    command: ["--nats-addr=guac-nats:4222"]
+    depends_on:
+      - guac-nats
+    restart: always
+
+  guac-api:
+    image: ghcr.io/guacsec/guac-api:latest
+    container_name: guac-api
+    networks:
+      - guac_internal_net
+    command: [
+        "--db-user=guac",
+        "--db-pass=guac",
+        "--db-addr=guac-postgres:5432",
+        "--db-name=guac",
+        "--csub-addr=nats://guac-nats:4222"
+      ]
+    depends_on:
+      - guac-postgres
+      - guac-nats
+    restart: always
+
+  guac-graphql:
+    image: ghcr.io/guacsec/guac-graphql-server:latest
+    container_name: guac-graphql
+    networks:
+      - guac_internal_net
+    command: ["--api-addr=guac-api:8080"]
+    depends_on:
+      - guac-api
+    restart: always
+
+networks:
+  guac_internal_net:
+    driver: bridge
+
+volumes:
+  # TODO: Add support for Docker named volumes for guac-postgres data
+  # guac_data_pg:
+  #   external: false
+  # FIX: Removed the misplaced 'restart: always' from here.
+  #      It's a service-level option, not a volume-level one.

@@ -1,0 +1,7 @@
+# This file assembles all the layers of our Spoke.
+name: subgraph-dgraph-software-supply-chain
+
+include:
+  - ./compose/dgraph.yml
+  - ./compose/guac.yml
+  - ./compose/mesh.yml
