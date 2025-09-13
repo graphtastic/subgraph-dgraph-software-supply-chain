@@ -1,7 +1,6 @@
-version: '3.9'
 services:
   extractor:
-    build: ../guac-mesh-graphql
+    build: ./guac-mesh-graphql
     image: guac-mesh-extractor:latest
     command: ["node", "scripts/extractor.js"]
     volumes:

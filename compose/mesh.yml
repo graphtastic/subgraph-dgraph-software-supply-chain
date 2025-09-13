@@ -2,7 +2,7 @@
 
 services:
   guac-mesh-graphql:
-    build: ../guac-mesh-graphql
+    build: ./guac-mesh-graphql
     container_name: guac-mesh-graphql
     networks:
       - guac_internal_net
