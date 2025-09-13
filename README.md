@@ -110,6 +110,67 @@ For a complete breakdown of this architecture, please see the core implementatio
 
 ## 3. Local Development
 
+### 3.0. Makefile Targets: Developer Control Plane
+
+All operational tasks are orchestrated via the Makefile. **Never run `docker` or `docker compose` directly—always use these targets.**
+
+#### **Main Targets**
+
+| Target                   | Description |
+|--------------------------|-------------|
+| `make help`              | Show this help message and a summary of all targets. |
+| `make setup`             | Create shared Docker resources (networks, etc). |
+| `make up`                | Bring up all services (full stack). |
+| `make down`              | Bring down all services. |
+| `make clean`             | Remove all containers, networks, persistent data, and benchmarking data. |
+| `make status`            | Show container, network, and volume status (diagnostics). |
+| `make logs`              | Tail logs for all running services. |
+
+#### **Service Management**
+
+| Target                   | Description |
+|--------------------------|-------------|
+| `make svc-up SVC=compose/xx.yml [SERVICE=service]`   | Bring up a specific compose file (and optionally a service). |
+| `make svc-down SVC=compose/xx.yml [SERVICE=service]` | Bring down a specific compose file (and optionally a service). |
+| `make svc-logs SVC=compose/xx.yml [SERVICE=service]` | Tail logs for a specific compose file (and optionally a service). |
+
+#### **Data Pipeline**
+
+| Target                   | Description |
+|--------------------------|-------------|
+| `make ingest-sboms`      | Ingest SBOMs from the `./sboms` directory into GUAC. |
+| `make extract`           | Run the ETL script to extract from Mesh and generate RDF. |
+| `make seed`              | Perform a full, clean data seed from SBOMs to Dgraph (end-to-end pipeline). |
+
+#### **Benchmarking & Utilities**
+
+| Target                   | Description |
+|--------------------------|-------------|
+| `make fetch-benchmark-data`      | Download 1million RDF and schemas for benchmarking. |
+| `make wipe-dgraph-data`          | Remove all Dgraph persistent data and build output (for benchmarking). |
+| `make benchmark-bulk-indexed`    | Benchmark Dgraph bulk loader with indexed schema (wipes data first). |
+| `make benchmark-bulk-noindex`    | Benchmark Dgraph bulk loader with no-index schema (wipes data first). |
+
+#### **Other Utilities**
+
+| Target                   | Description |
+|--------------------------|-------------|
+| `make stop-alpha`        | Stop only Dgraph Alpha containers. |
+| `make start-alpha`       | Start only Dgraph Alpha containers. |
+| `make check-dockerfiles` | Check for missing Dockerfiles referenced in compose files. |
+
+#### **Dual-Mode Tooling Pattern**
+
+By default, all build, extraction, and schema composition tools are run in containers for reproducibility and CI/CD parity. For local development and fast iteration, you can run these tools natively by setting `USE_LOCAL_TOOLS=1` in your `.env` file:
+
+```bash
+echo "USE_LOCAL_TOOLS=1" >> .env
+```
+
+With this set, `make extract` and similar targets will run the scripts directly on your host (using your local Node.js environment). Remove or comment out this line to revert to containerized execution.
+
+---
+
 
 
 ### 3.0. Storage Mode: Bind Mounts Only (for now)
@@ -248,6 +309,21 @@ This project uses a modular, multi-stack Docker Compose architecture orchestrate
     * **Dgraph Ratel UI:** [http://localhost:8000](http://localhost:8000)
     * **Dgraph GraphQL Endpoint:** [http://localhost:8080/graphql](http://localhost:8080/graphql)
 
+
+## 3.3. Local vs. Containerized Tooling
+
+By default, all build, extraction, and schema composition tools are run in containers for reproducibility and CI/CD parity. For local development and fast iteration, you can run these tools natively by setting `USE_LOCAL_TOOLS=1` in your `.env` file:
+
+```bash
+echo "USE_LOCAL_TOOLS=1" >> .env
+```
+
+With this set, `make extract` and similar targets will run the scripts directly on your host (using your local Node.js environment). Remove or comment out this line to revert to containerized execution.
+
+This dual-mode workflow is documented in `PLAN.md` and enforced in the `Makefile`.
+
+---
+
 5. **Ingest SBOMs and Run the ETL Pipeline**
 
 To ingest SBOMs and load them into Dgraph, follow these steps:
@@ -281,13 +357,13 @@ Once logs indicate processing is finished (or after a reasonable wait), proceed.
 
 **Step 4: Export data from Mesh to RDF (N-Quads)**
 
-Run the extractor script to pull data from the Mesh GraphQL gateway and generate RDF N-Quads:
+Run the extractor script (now located in `guac-mesh-graphql/scripts/extractor.ts`) to pull data from the Mesh GraphQL gateway and generate RDF N-Quads:
 
 ```bash
 make extract
 ```
 
-This will create a compressed RDF file in `./build/guac.rdf.gz`.
+This will create a compressed RDF file in `guac-mesh-graphql/build/guac.rdf.gz`.
 
 **Step 5: Seed Dgraph with the extracted RDF**
 
@@ -297,7 +373,8 @@ The full pipeline (including all steps above) can be run with:
 make seed
 ```
 
-This will clean the environment, bring up all services, ingest SBOMs, extract RDF, and (when implemented) load into Dgraph.
+This will clean the environment, bring up all services, ingest SBOMs, extract RDF (from `guac-mesh-graphql/build/guac.rdf.gz`), and (when implemented) load into Dgraph.
+> **Note:** All Mesh transformation and extraction logic is now contained within the `guac-mesh-graphql/` subdirectory. This ensures proper Compose layering and allows `compose/guac.yml` to mount and access the extractor and its outputs directly.
 
 ---
 

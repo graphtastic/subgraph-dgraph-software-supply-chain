@@ -1,4 +1,4 @@
-# compose/guac.yml
+# compose/dgraph.yml
 
 services:
   dgraph-zero:
@@ -8,8 +8,8 @@ services:
     volumes:
       - ./dgraph-stack/dgraph/zero:/dgraph
     ports:
-      - "5080:5080"
-      - "6080:6080"
+      - "5081:5080"
+      - "6081:6080"
     restart: on-failure
     command: dgraph zero --my=dgraph-zero:5080
     networks:
@@ -22,8 +22,8 @@ services:
     volumes:
       - ./dgraph-stack/dgraph/alpha:/dgraph
     ports:
-      - "8080:8080"
-      - "9080:9080"
+      - "8081:8080"
+      - "9081:9080"
     restart: on-failure
     command: dgraph alpha --my=dgraph-alpha:7080 --zero=dgraph-zero:5080 --security "whitelist=${DGRAPH_ALPHA_WHITELIST}"
     depends_on:
@@ -36,7 +36,7 @@ services:
     image: dgraph/ratel:latest
     container_name: dgraph-ratel
     ports:
-      - "8000:8000"
+      - "8001:8000"
     restart: on-failure
     networks:
       - dgraph-net

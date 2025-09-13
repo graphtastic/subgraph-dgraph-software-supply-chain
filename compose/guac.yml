@@ -1,5 +1,9 @@
 # compose/guac.yml
-
+#
+# This file is a synthesized configuration based on the project's original intent
+# (Postgres backend, private networking) and the updated service architecture
+# introduced in GUAC v1.0.0, as seen in the guac-demo-compose.yaml reference.
+#
 services:
   guac-postgres:
     image: postgres:13
@@ -10,62 +14,54 @@ services:
       - POSTGRES_DB=guac
       - POSTGRES_USER=guac
       - POSTGRES_PASSWORD=guac
-    # Storage: bind mount only for now (see README for TODO re: volumes)
     volumes:
       - ./dgraph-stack/guac-data:/var/lib/postgresql/data
-    restart: always # FIX: Added restart policy for resilience
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U guac -d guac"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # NATS is kept for potential use by collectors, though the core graphql
+  # service no longer uses it directly with the 'ent' backend.
   guac-nats:
     image: nats:2.9
     container_name: guac-nats
     networks:
       - guac_internal_net
-    restart: always
+    restart: on-failure
 
-  guac-collectd:
-    image: ghcr.io/guacsec/guac-collectd:latest
-    container_name: guac-collectd
+  # The collectsub service gathers data from various collectors.
+  guac-collectsub:
+    image: ghcr.io/guacsec/guac:v1.0.0
+    container_name: guac-collectsub
+    command: "/opt/guac/guaccsub"
     networks:
       - guac_internal_net
-    command: ["--nats-addr=guac-nats:4222"]
+    restart: on-failure
     depends_on:
       - guac-nats
-    restart: always
 
-  guac-api:
-    image: ghcr.io/guacsec/guac-api:latest
-    container_name: guac-api
-    networks:
-      - guac_internal_net
-    command: [
-        "--db-user=guac",
-        "--db-pass=guac",
-        "--db-addr=guac-postgres:5432",
-        "--db-name=guac",
-        "--csub-addr=nats://guac-nats:4222"
-      ]
-    depends_on:
-      - guac-postgres
-      - guac-nats
-    restart: always
-
+  # The graphql service, configured to use the 'ent' backend with Postgres.
   guac-graphql:
-    image: ghcr.io/guacsec/guac-graphql-server:latest
+    image: ghcr.io/guacsec/guac:v1.0.0
     container_name: guac-graphql
+    command: >
+      /opt/guac/guacgql
+      --gql-backend ent
+      --db-driver postgres
+      --db-address "postgres://guac:guac@guac-postgres:5432/guac?sslmode=disable"
+      --gql-debug
     networks:
       - guac_internal_net
-    command: ["--api-addr=guac-api:8080"]
+    restart: on-failure
     depends_on:
-      - guac-api
-    restart: always
+      guac-postgres:
+        condition: service_healthy
+    volumes:
+      - ../sboms:/sboms
 
 networks:
   guac_internal_net:
     driver: bridge
-
-volumes:
-  # TODO: Add support for Docker named volumes for guac-postgres data
-  # guac_data_pg:
-  #   external: false
-  # FIX: Removed the misplaced 'restart: always' from here.
-  #      It's a service-level option, not a volume-level one.

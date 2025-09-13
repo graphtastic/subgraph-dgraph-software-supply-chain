@@ -1,0 +1,17 @@
+version: '3.9'
+services:
+  extractor:
+    build: ../guac-mesh-graphql
+    image: guac-mesh-extractor:latest
+    command: ["node", "scripts/extractor.js"]
+    volumes:
+      - ../guac-mesh-graphql/build:/app/build
+      - ../guac-mesh-graphql/scripts:/app/scripts
+    environment:
+      - MESH_ENDPOINT=http://guac-mesh-graphql:4000/graphql
+    networks:
+      - default
+      - guac_internal_net
+networks:
+  guac_internal_net:
+    external: true

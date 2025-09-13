@@ -2,25 +2,17 @@
 
 services:
   guac-mesh-graphql:
-    image: node:20-alpine # Placeholder, replace with actual Mesh image
+    build: ../guac-mesh-graphql
     container_name: guac-mesh-graphql
-    command: ["sleep", "infinity"] # Stub command
     networks:
       - guac_internal_net
       - graphtastic_net
     ports:
       - "4000:4000"
-    # Storage: bind mount only for now (see README for TODO re: volumes)
     volumes:
-      - ./dgraph-stack/mesh-cache:/app/cache
+      - ../guac-mesh-graphql/.meshrc.yml:/usr/src/app/.meshrc.yml
+      - ./dgraph-stack/mesh-cache:/usr/src/app/.mesh
 
 networks:
-  guac_internal_net:
-    external: true
   graphtastic_net:
     external: true
-
-# TODO: Add support for Docker named volumes for mesh cache
-# volumes:
-#   mesh_data_cache:
-#     external: false
