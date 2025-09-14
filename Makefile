@@ -17,9 +17,6 @@
 # === CORE CONFIGURATION VARIABLES (centralized with defaults) ===
 # ============================================================================
 
-# NOTE: the strip function is used to remove any accidental leading/trailing whitespace
-# from environment variable values, have caused hard-to-diagnose issues.
-
 # Ensure COMPOSE_FILE is always set and exported for docker compose
 export COMPOSE_FILE ?= docker-compose.yml
 
@@ -44,6 +41,9 @@ export GUAC_DATA_PATH ?= ./dgraph-stack/guac-data
 export POSTGRES_DB ?= guac
 export POSTGRES_USER ?= guac
 export POSTGRES_PASSWORD ?= guac
+# Full database connection string for GUAC services, built from the parts above
+export GUAC_DB_ADDRESS ?= postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@guac-postgres:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable
+
 
 # --- Mesh/Extractor endpoints ---
 export MESH_ENDPOINT ?= http://guac-mesh-graphql:4000/graphql
@@ -107,9 +107,9 @@ DGRAPH_BULK_ARGS := --map_shards=1 --reduce_shards=1 --zero=dgraph-zero:5080
 
 .PHONY: help setup up down clean status logs
 .PHONY: ingest-sboms extract demo-1m
-.PHONY: fetch-benchmark-data validate check-dockerfiles lint-makefile
+.PHONY: fetch-benchmark-data validate check-dockerfiles lint-makefile lint
 .PHONY: print-vars print-docker-networks print-docker-volumes
-.PHONY: var-% clean-dgraph-zero
+.PHONY: var-% clean-dgraph-zero preflight
 .PHONY: generate-compose-config-only
 
 # ============================================================================
@@ -156,6 +156,7 @@ print-vars:
 	@echo "  POSTGRES_USER      = $(POSTGRES_USER)"
 	@echo "  POSTGRES_PASSWORD  = $(POSTGRES_PASSWORD)"
 	@echo "  GUAC_DATA_PATH     = $(GUAC_DATA_PATH)"
+	@echo "  GUAC_DB_ADDRESS    = $(GUAC_DB_ADDRESS)"
 	@echo "  POSTGRES_PORT_HOST = $(POSTGRES_PORT_HOST)"
 	@echo "  POSTGRES_PORT      = $(POSTGRES_PORT)"
 	@echo "  GUAC_GRAPHQL_PORT_HOST = $(GUAC_GRAPHQL_PORT_HOST)"
@@ -191,12 +192,27 @@ print-docker-volumes:
 	fi; \
 	docker volume ls | grep -E "$${pattern}" || true
 
-# Lint Makefile for common issues
-lint-makefile:
-	@echo "Linting Makefile for common issues..."
-	@grep -n '^ ' Makefile && echo 'ERROR: Space-indented recipe found!' && exit 1 || true
-	@grep -n '@echo' Makefile | grep '\\$$' && echo 'ERROR: @echo found in shell block!' && exit 1 || true
-	@echo "No common Makefile issues found."
+lint:
+	@echo "--- Running linter ---"
+	@echo "1. Checking Makefile for space indentations..."
+	@if grep -n '^ ' Makefile; then \
+		echo "❌ ERROR: Makefile contains space-indented lines. Please use tabs for recipes."; \
+		FOUND_ERROR=1; \
+	else \
+		echo "✅ OK: No space indentations found."; \
+	fi
+	@echo "\n2. Checking for trailing whitespace in config files..."
+	@FILES_TO_CHECK="Makefile .env.example compose/*.yml"; \
+	if ! grep -nE '[ \t]+$$' $$FILES_TO_CHECK; then \
+		echo "✅ OK: No trailing whitespace found."; \
+	else \
+		echo "❌ ERROR: Found trailing whitespace in the files listed above. Please remove it."; \
+		FOUND_ERROR=1; \
+	fi
+	@echo "\n--- Linter finished ---"
+	@if [ "$$FOUND_ERROR" = "1" ]; then \
+		exit 1; \
+	fi
 
 # Force remove any existing 'dgraph-zero' container (unmanaged or orphaned)
 clean-dgraph-zero:
@@ -228,6 +244,7 @@ help:
 	@echo "  validate             - Run a series of health checks on the running environment."
 	@echo "  fetch-benchmark-data - Download 1million RDF and schemas for benchmarking."
 	@echo "  check-dockerfiles    - Check for missing Dockerfiles referenced in compose files."
+	@echo "  lint                 - Run static checks on Makefile and config files."
 	@echo "  clean-dgraph-zero    - Force remove only the 'dgraph-zero' container if it's blocking."
 	@echo ""
 	@echo "=== Environment Variables (current values) ==="
@@ -235,63 +252,17 @@ help:
 	@echo "  See .env.example for all options and documentation."
 
 # Prepare the local environment: create networks, volumes, and directories.
-# This target now purely focuses on setting up prerequisites and cleaning up known conflicts.
+# This target is now non-interactive and CI/CD friendly.
 preflight:
-	@echo "--- Initializing shared resources ---"
-	# Check for and handle orphaned 'dgraph-zero' container if it exists.
-	# This logic tries to gracefully stop it if part of another Compose project,
-	# or prompts for force removal if unmanaged/stuck.
+	@echo "--- Running preflight checks ---"
+	# Check for a conflicting 'dgraph-zero' container and fail with a clear, actionable error.
 	@if docker ps -a --format '{{.Names}}' | grep -q '^dgraph-zero$$'; then \
-		echo "WARN: Found a conflicting container named 'dgraph-zero'. This might prevent 'make up' from running."; \
-		CONTAINER_INFO=$$(docker inspect dgraph-zero 2>/dev/null); \
-		COMPOSE_PROJECT_NAME=$$(echo "$$CONTAINER_INFO" | jq -r '.[0].Config.Labels."com.docker.compose.project" // ""' 2>/dev/null); \
-		\
-		if [ -n "$$COMPOSE_PROJECT_NAME" ] && [ "$$COMPOSE_PROJECT_NAME" != "$(shell basename $(CURDIR))" ] && [ "$$COMPOSE_PROJECT_NAME" != "$(patsubst %/docker-compose.yml,%,$(COMPOSE_FILE))" ]; then \
-			echo "INFO: This 'dgraph-zero' container appears to be part of Docker Compose project: '$$COMPOSE_PROJECT_NAME'."; \
-			echo "INFO: Attempting to gracefully stop it using 'docker compose down' for that project..."; \
-			if docker compose -p "$$COMPOSE_PROJECT_NAME" down dgraph-zero; then \
-				echo "✅ Successfully stopped conflicting 'dgraph-zero' from project '$$COMPOSE_PROJECT_NAME'."; \
-			else \
-				echo "❌ Failed to gracefully stop 'dgraph-zero' from project '$$COMPOSE_PROJECT_NAME'."; \
-				echo "   It might be stuck or unmanaged. Further action is needed."; \
-				IS_INTERACTIVE=$$( [ -t 0 ] && echo "true" || echo "false" ); \
-				if [ "$$IS_INTERACTIVE" = "true" ]; then \
-					read -p "Do you want to force remove it with 'docker rm -f dgraph-zero'? (y/N) " -n 1 -r REPLY; \
-					echo; \
-					if [[ "$$REPLY" =~ ^[Yy]$$ ]]; then \
-						echo "Proceeding with force removal..."; \
-						docker rm -f dgraph-zero; \
-						echo "✅ Conflicting 'dgraph-zero' container force removed."; \
-					else \
-						echo "Aborting. Please manually resolve the 'dgraph-zero' conflict before proceeding, or run 'make clean-dgraph-zero'."; \
-						exit 1; \
-					fi; \
-				else \
-					echo "Aborting (non-interactive mode). Please manually remove the conflicting 'dgraph-zero' container (e.g., 'docker rm -f dgraph-zero') and retry, or run 'make clean-dgraph-zero'."; \
-					exit 1; \
-				fi; \
-			fi; \
-		else \
-			echo "INFO: The conflicting 'dgraph-zero' container is either unmanaged by Compose, or part of *this* Compose project but in a bad state."; \
-			IS_INTERACTIVE=$$( [ -t 0 ] && echo "true" || echo "false" ); \
-			if [ "$$IS_INTERACTIVE" = "true" ]; then \
-				read -p "Do you want to force remove it with 'docker rm -f dgraph-zero'? (y/N) " -n 1 -r REPLY; \
-				echo; \
-				if [[ "$$REPLY" =~ ^[Yy]$$ ]]; then \
-					echo "Proceeding with force removal..."; \
-					docker rm -f dgraph-zero; \
-					echo "✅ Conflicting 'dgraph-zero' container force removed."; \
-				else \
-					echo "Aborting. Please manually resolve the 'dgraph-zero' conflict before proceeding, or run 'make clean-dgraph-zero'."; \
-					exit 1; \
-				fi; \
-			else \
-				echo "Aborting (non-interactive mode). Please manually remove the conflicting 'dgraph-zero' container (e.g., 'docker rm -f dgraph-zero') and retry, or run 'make clean-dgraph-zero'."; \
-				exit 1; \
-			fi; \
-		fi; \
+		printf "\n\033[0;31m%s\033[0m\n" "❌ ERROR: Found a conflicting container named 'dgraph-zero'."; \
+		printf "\033[1;33m%s\033[0m\n" "   This can happen if a previous command failed or was interrupted."; \
+		printf "\033[1;33m%s\033[0m\n\n" "   Run 'make clean' or 'make clean-dgraph-zero' to fix it, then try again."; \
+		exit 1; \
 	fi
-	# Rest of preflight operations (network, volume, dir creation)
+	@echo "--- Initializing shared resources ---"
 	@docker network create "$(EXTERNAL_NETWORK_NAME)" >/dev/null 2>&1 || true
 	@if [ "$(DGRAPH_DATA_MODE)" = "volume" ]; then \
 		echo "INFO: Dgraph data mode is 'volume', ensuring volumes exist..."; \
@@ -422,3 +393,4 @@ check-dockerfiles: preflight
 	if [ "$$missing" -eq 0 ]; then \
 	  echo "✅ All referenced Dockerfiles are present."; \
 	fi; exit $$missing
+	

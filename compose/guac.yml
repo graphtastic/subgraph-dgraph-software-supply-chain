@@ -47,7 +47,7 @@ services:
       /opt/guac/guacgql
       --gql-backend ent
       --db-driver postgres
-      --db-address "postgres://guac:guac@guac-postgres:${POSTGRES_PORT:-5432}/guac?sslmode=disable"
+      --db-address "${GUAC_DB_ADDRESS}"
       --gql-debug
     ports:
       - "${GUAC_GRAPHQL_PORT_HOST:-8080}:${GUAC_GRAPHQL_PORT:-8080}"
