@@ -1,0 +1,73 @@
+# compose/guac.yml
+#
+# This file is a synthesized configuration based on the project's original intent
+# (Postgres backend, private networking) and the updated service architecture
+# introduced in GUAC v1.0.0, as seen in the guac-demo-compose.yaml reference.
+#
+services:
+  guac-postgres:
+    image: postgres:13
+    container_name: guac-postgres
+    networks:
+      - guac_internal_net
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-guac}
+      - POSTGRES_USER=${POSTGRES_USER:-guac}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-guac}
+    volumes:
+      - type: ${PERSISTENCE_MODE:-bind}
+        source: ${GUAC_POSTGRES_DATA_VOLUME:-${DATA_BASE_PATH:-.}/runtime-data/guac-postgres}
+        target: /var/lib/postgresql/data
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-guac} -d ${POSTGRES_DB:-guac}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  guac-nats:
+    image: nats:2.9
+    container_name: guac-nats
+    networks:
+      - guac_internal_net
+    restart: on-failure
+
+  guac-collectsub:
+    image: ghcr.io/guacsec/guac:v1.0.0
+    container_name: guac-collectsub
+    command: "/opt/guac/guaccsub"
+    networks:
+      - guac_internal_net
+    restart: on-failure
+    depends_on:
+      - guac-nats
+
+  guac-graphql:
+    image: ghcr.io/guacsec/guac:v1.0.0
+    container_name: guac-graphql
+    command: >
+      /opt/guac/guacgql
+      --gql-backend ent
+      --db-driver postgres
+      --db-address "${GUAC_DB_ADDRESS}"
+      --gql-debug
+    ports:
+      - "${GUAC_GRAPHQL_PORT_HOST:-8080}:${GUAC_GRAPHQL_PORT:-8080}"
+    networks:
+      - guac_internal_net
+      - graphtastic_net # <-- ADDED: Exposes this service externally
+    restart: on-failure
+    depends_on:
+      guac-postgres:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ${DATA_BASE_PATH:-.}/sboms
+        target: /sboms
+
+networks:
+  guac_internal_net:
+    driver: bridge
+  graphtastic_net:
+    name: ${EXTERNAL_NETWORK_NAME:-graphtastic_net}
+    external: true

@@ -1,0 +1,12 @@
+# This file configures GraphQL Mesh to act as a transformation sidecar.
+# It sources the upstream GUAC API and applies transforms to prepare it for federation.
+
+sources:
+  - name: GUAC
+    handler:
+      graphql:
+        endpoint: http://guac-graphql:8080/query
+
+# The 'serve' section is crucial for Mesh to start its own server.
+serve:
+  port: 4000

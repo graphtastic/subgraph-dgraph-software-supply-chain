@@ -1,0 +1,80 @@
+# compose/dgraph.yml
+
+services:
+  dgraph-zero:
+    image: dgraph/dgraph:latest
+    container_name: dgraph-zero
+    volumes:
+      - type: ${PERSISTENCE_MODE:-bind}
+        source: ${DGRAPH_DATA_VOLUME_ZERO:-${DATA_BASE_PATH:-.}/runtime-data/dgraph/zero}
+        target: /dgraph
+    ports:
+      - "${DGRAPH_ZERO_GRPC_PORT_HOST:-5081}:${DGRAPH_ZERO_GRPC_PORT:-5080}"
+      - "${DGRAPH_ZERO_HTTP_PORT_HOST:-6081}:${DGRAPH_ZERO_HTTP_PORT:-6080}"
+    restart: on-failure
+    command: dgraph zero --my=dgraph-zero:5080
+    networks:
+      - dgraph_internal_net
+
+  dgraph-alpha:
+    image: dgraph/dgraph:latest
+    container_name: dgraph-alpha
+    volumes:
+      - type: ${PERSISTENCE_MODE:-bind}
+        source: ${DGRAPH_DATA_VOLUME_ALPHA:-${DATA_BASE_PATH:-.}/runtime-data/dgraph/alpha}
+        target: /dgraph
+    ports:
+      - "${DGRAPH_ALPHA_HTTP_PORT_HOST:-8081}:${DGRAPH_ALPHA_HTTP_PORT:-8080}"
+      - "${DGRAPH_ALPHA_GRPC_PORT_HOST:-9081}:${DGRAPH_ALPHA_GRPC_PORT:-9080}"
+    restart: on-failure
+    command: dgraph alpha --my=dgraph-alpha:7080 --zero=dgraph-zero:5080 --security "whitelist=${DGRAPH_ALPHA_WHITELIST}"
+    depends_on:
+      - dgraph-zero
+    networks:
+      - dgraph_internal_net
+      - graphtastic_net
+
+  dgraph-ratel:
+    image: dgraph/ratel:latest
+    container_name: dgraph-ratel
+    ports:
+      - "${DGRAPH_RATEL_PORT_HOST:-8001}:${DGRAPH_RATEL_PORT:-8000}"
+    restart: on-failure
+    networks:
+      - dgraph_internal_net
+      - graphtastic_net
+
+  dgraph-bulk-loader:
+    image: dgraph/dgraph:latest
+    container_name: dgraph-bulk-loader
+    profiles: ["tools"]
+    volumes:
+      - type: bind
+        source: ${DATA_BASE_PATH:-.}/build
+        target: /dgraph/build
+      - type: bind
+        source: ${DATA_BASE_PATH:-.}/schema
+        target: /dgraph/schema
+      - type: bind
+        source: ${DATA_BASE_PATH:-.}/guac-mesh-graphql/benchmark
+        target: /dgraph/benchmark
+      - type: bind
+        source: ${DATA_BASE_PATH:-.}/out
+        target: /dgraph/out
+    working_dir: /dgraph
+    command: echo "This service is intended to be run with 'make demo-1m' or similar."
+    networks:
+      - dgraph_internal_net
+
+networks:
+  dgraph_internal_net:
+    driver: bridge
+  graphtastic_net:
+    name: ${EXTERNAL_NETWORK_NAME:-graphtastic_net}
+    external: true
+
+volumes:
+  dgraph_data_zero:
+    name: ${DGRAPH_DATA_VOLUME_ZERO:-dgraph_data_zero}
+  dgraph_data_alpha:
+    name: ${DGRAPH_DATA_VOLUME_ALPHA:-dgraph_data_alpha}

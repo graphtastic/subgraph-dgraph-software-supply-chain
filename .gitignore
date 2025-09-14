@@ -1,0 +1,27 @@
+# Mac files
+.DS_Store
+
+# Node
+node_modules/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build artifacts
+build/
+
+# Dgraph persistent data
+dgraph-stack/
+sboms/
+build/
+dgraph-stack/dgraph/
+dgraph-stack/config/
+
+# Environment
+.env
+
+
+AGENTS.md
+GEMINI.md
+PLAN.md

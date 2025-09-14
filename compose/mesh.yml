@@ -1,0 +1,26 @@
+# compose/mesh.yml
+
+services:
+  guac-mesh-graphql:
+    build:
+      context: ../guac-mesh-graphql
+    container_name: guac-mesh-graphql
+    networks:
+      - graphtastic_net
+    ports:
+      - "${MESH_GRAPHQL_PORT_HOST:-4000}:${MESH_GRAPHQL_PORT:-4000}"
+    volumes:
+      - ../guac-mesh-graphql:/app
+      # We mount the entire directory so mesh can find package.json, etc.
+      # And so that changes to .meshrc.yml are reflected on restart.
+    depends_on:
+      # Explicitly depend on guac-graphql from the main compose file
+      # This requires guac-graphql to be defined in the main docker-compose.yml
+      # or for this service to be brought up after guac is healthy.
+      # The Makefile orchestrates this.
+      - guac-graphql
+
+networks:
+  graphtastic_net:
+    name: ${EXTERNAL_NETWORK_NAME:-graphtastic_net}
+    external: true

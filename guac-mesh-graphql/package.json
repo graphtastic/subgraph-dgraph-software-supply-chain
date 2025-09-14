@@ -1,0 +1,25 @@
+{
+  "name": "guac-mesh-graphql",
+  "version": "1.0.0",
+  "description": "Mesh transformation sidecar and extractor for GUAC Spoke",
+  "main": "scripts/extractor.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "./node_modules/.bin/mesh dev",
+    "start:extractor": "ts-node-esm scripts/extractor.ts",
+    "extract": "ts-node-esm scripts/extractor.ts"
+  },
+  "dependencies": {
+    "graphql": "^16.11.0",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@graphql-mesh/cli": "latest",
+    "@graphql-mesh/graphql": "latest",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.1",
+    "@types/node": "^24.3.2",
+    "@types/node-fetch": "^2.6.13"
+  }
+}
