@@ -28,25 +28,25 @@ Our architecture is built on a foundation of powerful, cloud-native technologies
 
 This project is fully configurable via environment variables defined in the `Makefile`. You can override any default by creating a `.env` file in the project root. See the `.env.example` file for a complete template.
 
-| Variable | Default Value | Description |
-|---|---|---|
-| **Core & Networking** |||
-| `EXTERNAL_NETWORK_NAME` | `graphtastic-network` | shared Docker network name that connects stacks' public API endpoint(s). |
-| `COMPOSE_FILE` | `docker-compose.yml` | Main Compose file used by `make`. |
-| **Universal Persistence** |||
-| `PERSISTENCE_MODE` | `bind` | Global data storage mode: `bind` or `volume`. |
-| `DATA_BASE_PATH` | `.` (project root) | Base path for all `bind` mounted data directories. |
-| **Dgraph Stack** |||
-| `DGRAPH_ALPHA_WHITELIST` | `0.0.0.0/0` | Dgraph Alpha node IP whitelist for admin actions. |
-| `DGRAPH_DATA_VOLUME_ZERO` | `dgraph_zero_data` | Name for Dgraph Zero's data volume. _(PERSISTENCE_MODE=volume)_ |
-| `DGRAPH_DATA_VOLUME_ALPHA` | `dgraph_alpha_data` | Name for Dgraph Alpha's data volume. _(PERSISTENCE_MODE=volume)_ |
-| **GUAC Stack** |||
-| `POSTGRES_DB` | `guac` | GUAC Postgres database name. |
-| `POSTGRES_USER` | `guac` | GUAC Postgres user. |
-| `POSTGRES_PASSWORD` | `guac` | GUAC Postgres password. |
-| `GUAC_POSTGRES_DATA_VOLUME`| `guac_postgres_data`| Name for GUAC Postgres' data volume (in `volume` mode). |
-| **Tooling** |||
-| `USE_LOCAL_TOOLS` | `0` | Run tools natively on host (`1`) or in container (`0`). |
+| Variable                       | Default Value         | Description                                                          |
+|--------------------------------|-----------------------|----------------------------------------------------------------------|
+| **Core & Networking**          |                       |                                                                      |
+| `EXTERNAL_NETWORK_NAME`        | `graphtastic-network` | shared Docker network name that connects stacks' public API endpoint(s). |
+| `COMPOSE_FILE`                 | `docker-compose.yml`  | Main Compose file used by `make`.                                    |
+| **Universal Persistence**      |                       |                                                                      |
+| `PERSISTENCE_MODE`             | `bind`                | Global data storage mode: `bind` or `volume`.                        |
+| `DATA_BASE_PATH`               | `.` (project root)    | Base path for all `bind` mounted data directories.                   |
+| **Dgraph Stack**               |                       |                                                                      |
+| `DGRAPH_ALPHA_WHITELIST`       | `0.0.0.0/0`           | Dgraph Alpha node IP whitelist for admin actions.                    |
+| `DGRAPH_DATA_VOLUME_ZERO`      | `dgraph_zero_data`    | Name for Dgraph Zero's data volume. _(PERSISTENCE_MODE=volume)_      |
+| `DGRAPH_DATA_VOLUME_ALPHA`     | `dgraph_alpha_data`   | Name for Dgraph Alpha's data volume. _(PERSISTENCE_MODE=volume)_     |
+| **GUAC Stack**                 |                       |                                                                      |
+| `POSTGRES_DB`                  | `guac`                | GUAC Postgres database name.                                         |
+| `POSTGRES_USER`                | `guac`                | GUAC Postgres user.                                                  |
+| `POSTGRES_PASSWORD`            | `guac`                | GUAC Postgres password.                                              |
+| `GUAC_POSTGRES_DATA_VOLUME`    | `guac_postgres_data`  | Name for GUAC Postgres' data volume (in `volume` mode).              |
+| **Tooling**                    |                       |                                                                      |
+| `USE_LOCAL_TOOLS`              | `0`                   | Run tools natively on host (`1`) or in container (`0`).              |
 
 *Note: Port mappings are also configurable as variables. See the `Makefile` or `.env.example` for a full list.*
 
