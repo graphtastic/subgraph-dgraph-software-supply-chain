@@ -12,7 +12,7 @@ This repository contains the source code, operational configuration, and detaile
 
 This subgraph serves two primary, strategic purposes:
 
-1. **CNCF Demonstrator:** To act as a reference implementation and standalone demonstrator for the [CNCF Software Supply Chain Insights initiative](https://github.com/cncf/toc/issues/1709).
+1. **CNCF Demonstrator:** To act as a reference implementation and standalone demonstrator for the [[Initiative]: CNCF Software Supply Chain Insights · Issue #1709 · cncf/toc](https://github.com/cncf/toc/issues/1709).
 2. **Federated Spoke:** To function as a fully compliant, federated Spoke within the Graphtastic supergraph, aggregating and exposing security data from multiple sources.
 
 ### 1.2. Core Technology
@@ -31,15 +31,15 @@ This project is fully configurable via environment variables defined in the `Mak
 | Variable | Default Value | Description |
 |---|---|---|
 | **Core & Networking** |||
-| `EXTERNAL_NETWORK_NAME` | `graphtastic-network` | Name of the shared Docker network connecting all stacks. |
+| `EXTERNAL_NETWORK_NAME` | `graphtastic-network` | shared Docker network name that connects stacks' public API endpoint(s). |
 | `COMPOSE_FILE` | `docker-compose.yml` | Main Compose file used by `make`. |
 | **Universal Persistence** |||
 | `PERSISTENCE_MODE` | `bind` | Global data storage mode: `bind` or `volume`. |
 | `DATA_BASE_PATH` | `.` (project root) | Base path for all `bind` mounted data directories. |
 | **Dgraph Stack** |||
-| `DGRAPH_ALPHA_WHITELIST` | `0.0.0.0/0` | Dgraph Alpha IP whitelist for admin actions. |
-| `DGRAPH_DATA_VOLUME_ZERO` | `dgraph_zero_data` | Name for Dgraph Zero's data volume (in `volume` mode). |
-| `DGRAPH_DATA_VOLUME_ALPHA` | `dgraph_alpha_data` | Name for Dgraph Alpha's data volume (in `volume` mode). |
+| `DGRAPH_ALPHA_WHITELIST` | `0.0.0.0/0` | Dgraph Alpha node IP whitelist for admin actions. |
+| `DGRAPH_DATA_VOLUME_ZERO` | `dgraph_zero_data` | Name for Dgraph Zero's data volume. _(PERSISTENCE_MODE=volume)_ |
+| `DGRAPH_DATA_VOLUME_ALPHA` | `dgraph_alpha_data` | Name for Dgraph Alpha's data volume. _(PERSISTENCE_MODE=volume)_ |
 | **GUAC Stack** |||
 | `POSTGRES_DB` | `guac` | GUAC Postgres database name. |
 | `POSTGRES_USER` | `guac` | GUAC Postgres user. |
@@ -59,9 +59,9 @@ This project is fully configurable via environment variables defined in the `Mak
 * `wget` (for the `make fetch-benchmark-data` target)
 * `nc` (netcat, for the `make validate` target)
 
-### 2.2. Getting Started: A Functional Demo in One Command
+### 2.2. Quickstart (demo)
 
-This repository is configured to provide a complete, end-to-end demonstration of the data pipeline using a 1-million-triple benchmark dataset.
+This repository is configured to provide a complete, end-to-end demonstration of the data pipeline using a 1-million RDF triple benchmark dataset, with and without indexing, timed.
 
 **To launch the entire demo, populate Dgraph with data, and start all services, run:**
 
@@ -83,6 +83,8 @@ After the command completes, you can access the services:
 * **Dgraph GraphQL Endpoint:** [http://localhost:8081/graphql](http://localhost:8081/graphql)
 * **GUAC Mesh GraphQL Endpoint:** [http://localhost:4000/graphql](http://localhost:4000/graphql)
 * **GUAC GraphQL Endpoint (raw):** [http://localhost:8080/query](http://localhost:8080/query)
+
+**TODO: add a good diagram here**
 
 ### 2.3. Day-to-Day Workflow
 
@@ -120,7 +122,11 @@ Once the demo is running, or if you want to start an empty environment, use the 
 
 ### 2.4. The Makefile Control Plane
 
-All operational tasks are orchestrated via the Makefile. **Never run `docker` or `docker compose` directly—always use these targets.** Run `make help` for a full list of available commands.
+All operational tasks are orchestrated via the Makefile. 
+
+**Never run `docker` or `docker compose` directly—always use these targets defined in the Makefile..** 
+* `make help` for a full list of available commands.
+* If you find yourself wanting or needing to use `docker` or `docker compose`, please create an Issue. **PR's are warmly welcomed**!
 
 ## 3. Architecture
 
@@ -130,7 +136,7 @@ This project employs a deliberate, two-tiered network architecture to ensure bot
 
 **TODO: add a diagram**
 
-* **Internal Networks (`dgraph_internal_net`, `guac_internal_net`):**
+* **Internal Networks (`dgraph_internal_net`, `guac_internal_net`, `mesh_internal_net` (coming soon):**
   * **Purpose:** Secure, private communication between the internal components of a single stack.
   * **Example:** `dgraph-alpha` communicates with `dgraph-zero` over `dgraph_internal_net`. These services are completely inaccessible from outside their stack.
   * **Analogy:** The private kitchen network in a restaurant.
@@ -140,17 +146,11 @@ This project employs a deliberate, two-tiered network architecture to ensure bot
   * **Example:** `dgraph-alpha`, `guac-graphql`, and `guac-mesh-graphql` all attach to this network to expose their APIs. Development tools like the `extractor` also attach here to consume those APIs.
   * **Analogy:** The public-facing service counter of a restaurant.
 
-This architecture provides the ideal balance: **strong isolation for backend components** and **controlled, discoverable access for public-facing APIs**.
+This architecture strives to balance: **isolation for backend components** and **controlled, discoverable access for public-facing APIs**.
 
-### 3.2. Data Ingestion Flow
+## 4. Design Philosophy & Project Documentation
 
-For a complete breakdown of the data ingestion architecture, please see the core implementation design:
-
-* [**`docs/design/design--guac-to-dgraph.md`**](./docs/design/design--guac-to-dgraph.md)
-
-## 4. Project Documentation & Design Philosophy
-
-This repository is not just a collection of code; it is a curated set of architectural patterns and design documents that form our engineering standard. The following documents are essential reading for any contributor to understand not just the "how," but the "why" behind our approach.
+This repository is  a curated set of architectural patterns and design documents that form our engineering standard. The following documents are essential reading for any contributor to understand not just the "how," but the "why" behind our approach.
 
 | Document                                           | Description                                                                                                                                                                                            |
 | :------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
