@@ -128,49 +128,7 @@ All operational tasks are orchestrated via the Makefile. **Never run `docker` or
 
 This project employs a deliberate, two-tiered network architecture to ensure both security and modularity. This approach allows each logical stack (like Dgraph or GUAC) to operate in isolation while selectively exposing public-facing APIs on a shared network.
 
-```mermaid
-graph TD
-    subgraph Host Machine (Your Laptop)
-        direction LR
-        A["Browser/curl"]
-    end
-
-    subgraph Docker Environment
-        subgraph Shared External Network (graphtastic-network)
-            direction LR
-            D[":8081<br/>dgraph-alpha"]
-            G[":8080<br/>guac-graphql"]
-            M[":4000<br/>guac-mesh"]
-            R[":8001<br/>dgraph-ratel"]
-            T[fa:fa-wrench Extractor Tool]
-        end
-
-        subgraph Dgraph Stack
-            direction TB
-            D -- "fa:fa-link" --> DZ["dgraph-zero"]
-            subgraph Dgraph Internal Network (dgraph_internal_net)
-                D <--> DZ
-            end
-        end
-
-        subgraph GUAC Stack
-            direction TB
-            G -- "fa:fa-link" --> GP["guac-postgres"]
-            subgraph GUAC Internal Network (guac_internal_net)
-                G <--> GP
-            end
-        end
-    end
-
-    A -- "http://localhost:8081" --> D
-    A -- "http://localhost:8080" --> G
-    A -- "http://localhost:4000" --> M
-    A -- "http://localhost:8001" --> R
-
-    T -- "http://dgraph-alpha:8080" --> D
-    T -- "http://guac-graphql:8080" --> G
-    M -- "http://guac-graphql:8080" --> G
-```
+**TODO: add a diagram**
 
 * **Internal Networks (`dgraph_internal_net`, `guac_internal_net`):**
   * **Purpose:** Secure, private communication between the internal components of a single stack.
