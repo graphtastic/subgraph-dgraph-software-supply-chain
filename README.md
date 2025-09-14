@@ -24,7 +24,54 @@ Our architecture is built on a foundation of powerful, cloud-native technologies
 *   **API Layer:** A GraphQL API designed from the ground up to be compliant with the [Apollo Federation](https://www.apollographql.com/docs/federation/) specification, using [GraphQL Mesh](https://the-guild.dev/graphql/mesh) as a transformation sidecar.
 *   **Development Environment:** A modular, multi-stack [Docker Compose](https://docs.docker.com/compose/) environment, orchestrated with `make` for a seamless and reproducible developer experience.
 
-## 2. Local Development
+
+## 2. Environment Variables & Configuration
+
+This project is fully configurable via environment variables, which can be set in a `.env` file, in your shell, or via CI/CD. All variables have sensible defaults and are documented below. See `.env.example` for a template.
+
+
+| Variable                        | Default Value                                 | Description |
+|----------------------------------|-----------------------------------------------|-------------|
+| **Core Networking & Compose**    |||
+| `EXTERNAL_NETWORK_NAME`          | `graphtastic_net`                            | Name of the shared Docker network connecting all stacks |
+| `COMPOSE_FILE`                   | `docker-compose.yml`                         | Main Compose file |
+| **Dgraph Stack**                 |||
+| `DGRAPH_ALPHA_WHITELIST`         | `0.0.0.0/0`                                  | Dgraph Alpha IP whitelist |
+| `DGRAPH_DATA_MODE`               | `bind`                                       | Dgraph data storage mode: `bind` or `volume` |
+| `DGRAPH_DATA_VOLUME`             | `dgraph_data`                                | Dgraph data volume name |
+| `DGRAPH_DATA_VOLUME_ZERO`        | `dgraph_data_zero`                           | Dgraph Zero volume name |
+| `DGRAPH_DATA_VOLUME_ALPHA`       | `dgraph_data_alpha`                          | Dgraph Alpha volume name |
+| **Dgraph Ports**                 |||
+| `DGRAPH_ZERO_GRPC_PORT`          | `5080`                                       | Dgraph Zero gRPC port (container) |
+| `DGRAPH_ZERO_GRPC_PORT_HOST`     | `5081`                                       | Dgraph Zero gRPC port (host) |
+| `DGRAPH_ZERO_HTTP_PORT`          | `6080`                                       | Dgraph Zero HTTP port (container) |
+| `DGRAPH_ZERO_HTTP_PORT_HOST`     | `6081`                                       | Dgraph Zero HTTP port (host) |
+| `DGRAPH_ALPHA_GRPC_PORT`         | `9080`                                       | Dgraph Alpha gRPC port (container) |
+| `DGRAPH_ALPHA_GRPC_PORT_HOST`    | `9081`                                       | Dgraph Alpha gRPC port (host) |
+| `DGRAPH_ALPHA_HTTP_PORT`         | `8080`                                       | Dgraph Alpha HTTP port (container) |
+| `DGRAPH_ALPHA_HTTP_PORT_HOST`    | `8081`                                       | Dgraph Alpha HTTP port (host) |
+| `DGRAPH_RATEL_PORT`              | `8000`                                       | Dgraph Ratel UI port (container) |
+| `DGRAPH_RATEL_PORT_HOST`         | `8001`                                       | Dgraph Ratel UI port (host) |
+| **GUAC Stack**                   |||
+| `POSTGRES_DB`                    | `guac`                                       | GUAC Postgres database name |
+| `POSTGRES_USER`                  | `guac`                                       | GUAC Postgres user |
+| `POSTGRES_PASSWORD`              | `guac`                                       | GUAC Postgres password |
+| `GUAC_DATA_PATH`                 | `./dgraph-stack/guac-data`                   | GUAC Postgres data path |
+| `POSTGRES_PORT`                  | `5432`                                       | Postgres port (container) |
+| `POSTGRES_PORT_HOST`             | `5432`                                       | Postgres port (host) |
+| `GUAC_GRAPHQL_PORT`              | `8080`                                       | GUAC GraphQL API port (container) |
+| `GUAC_GRAPHQL_PORT_HOST`         | `8080`                                       | GUAC GraphQL API port (host) |
+| **Mesh/Extractor**               |||
+| `MESH_ENDPOINT`                  | `http://guac-mesh-graphql:4000/graphql`      | Mesh GraphQL endpoint |
+| `GUAC_ENDPOINT`                  | `http://guac-graphql:8080/query`             | GUAC GraphQL endpoint |
+| `MESH_GRAPHQL_PORT`              | `4000`                                       | Mesh GraphQL API port (container) |
+| `MESH_GRAPHQL_PORT_HOST`         | `4000`                                       | Mesh GraphQL API port (host) |
+| **Tooling**                      |||
+| `USE_LOCAL_TOOLS`                | `1`                                          | Run tools natively (1) or in container |
+
+You can override any variable by setting it in your `.env` file or exporting it in your shell before running `make`.
+
+---
 
 ### 2.1. Prerequisites
 

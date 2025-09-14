@@ -11,14 +11,14 @@ services:
     networks:
       - guac_internal_net
     environment:
-      - POSTGRES_DB=guac
-      - POSTGRES_USER=guac
-      - POSTGRES_PASSWORD=guac
+      - POSTGRES_DB=${POSTGRES_DB:-guac}
+      - POSTGRES_USER=${POSTGRES_USER:-guac}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-guac}
     volumes:
-      - ./dgraph-stack/guac-data:/var/lib/postgresql/data
+      - ${GUAC_DATA_PATH:-./dgraph-stack/guac-data}:/var/lib/postgresql/data
     restart: on-failure
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U guac -d guac"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-guac} -d ${POSTGRES_DB:-guac}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -47,10 +47,10 @@ services:
       /opt/guac/guacgql
       --gql-backend ent
       --db-driver postgres
-      --db-address "postgres://guac:guac@guac-postgres:5432/guac?sslmode=disable"
+      --db-address "postgres://guac:guac@guac-postgres:${POSTGRES_PORT:-5432}/guac?sslmode=disable"
       --gql-debug
     ports:
-      - "8080:8080"
+      - "${GUAC_GRAPHQL_PORT_HOST:-8080}:${GUAC_GRAPHQL_PORT:-8080}"
     networks:
       - guac_internal_net
       - graphtastic_net # <-- ADDED: Exposes this service externally

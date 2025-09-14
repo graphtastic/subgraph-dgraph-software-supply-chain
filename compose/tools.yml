@@ -9,10 +9,8 @@ services:
       - ./guac-mesh-graphql:/app
       - ./build:/app/build
     environment:
-      # Target the Mesh endpoint over the shared network
-      - MESH_ENDPOINT=http://guac-mesh-graphql:4000/graphql
-      # Fallback to the raw GUAC endpoint if needed for debugging
-      - GUAC_ENDPOINT=http://guac-graphql:8080/query
+      - MESH_ENDPOINT=${MESH_ENDPOINT:-http://guac-mesh-graphql:4000/graphql}
+      - GUAC_ENDPOINT=${GUAC_ENDPOINT:-http://guac-graphql:8080/query}
     networks:
       # Connect ONLY to the shared network to access public endpoints
       - graphtastic_net
