@@ -4,23 +4,25 @@ services:
   dgraph-zero:
     image: dgraph/dgraph:latest
     container_name: dgraph-zero
-    # Storage: bind mount only for now (see README for TODO re: volumes)
     volumes:
-      - ./dgraph-stack/dgraph/zero:/dgraph
+      - type: ${DGRAPH_DATA_MODE:-bind}
+        source: ${DGRAPH_DATA_VOLUME_ZERO:-./dgraph-stack/dgraph/zero}
+        target: /dgraph
     ports:
       - "5081:5080"
       - "6081:6080"
     restart: on-failure
     command: dgraph zero --my=dgraph-zero:5080
     networks:
-      - dgraph-net
+      - dgraph_internal_net
 
   dgraph-alpha:
     image: dgraph/dgraph:latest
     container_name: dgraph-alpha
-    # Storage: bind mount only for now (see README for TODO re: volumes)
     volumes:
-      - ./dgraph-stack/dgraph/alpha:/dgraph
+      - type: ${DGRAPH_DATA_MODE:-bind}
+        source: ${DGRAPH_DATA_VOLUME_ALPHA:-./dgraph-stack/dgraph/alpha}
+        target: /dgraph
     ports:
       - "8081:8080"
       - "9081:9080"
@@ -29,7 +31,7 @@ services:
     depends_on:
       - dgraph-zero
     networks:
-      - dgraph-net
+      - dgraph_internal_net
       - graphtastic_net
 
   dgraph-ratel:
@@ -39,18 +41,40 @@ services:
       - "8001:8000"
     restart: on-failure
     networks:
-      - dgraph-net
+      - dgraph_internal_net
       - graphtastic_net
 
+  dgraph-bulk-loader:
+    image: dgraph/dgraph:latest
+    container_name: dgraph-bulk-loader
+    profiles: ["tools"]
+    volumes:
+      - type: bind
+        source: ./build
+        target: /dgraph/build
+      - type: bind
+        source: ./schema
+        target: /dgraph/schema
+      - type: bind
+        source: ./guac-mesh-graphql/benchmark
+        target: /dgraph/benchmark
+      - type: bind
+        source: ./out
+        target: /dgraph/out
+    working_dir: /dgraph
+    command: echo "This service is intended to be run with 'make demo-1m' or similar."
+    networks:
+      - dgraph_internal_net
+
 networks:
-  dgraph-net:
+  dgraph_internal_net:
     driver: bridge
   graphtastic_net:
+    name: ${EXTERNAL_NETWORK_NAME:-graphtastic_net}
     external: true
 
-# TODO: Add support for Docker named volumes for Dgraph data
-# volumes:
-#   dgraph_data_zero:
-#     external: false
-#   dgraph_data_alpha:
-#     external: false
+volumes:
+  dgraph_data_zero:
+    name: ${DGRAPH_DATA_VOLUME_ZERO:-dgraph_data_zero}
+  dgraph_data_alpha:
+    name: ${DGRAPH_DATA_VOLUME_ALPHA:-dgraph_data_alpha}

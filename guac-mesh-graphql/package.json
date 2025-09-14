@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "start:mesh": "ts-node-esm config/mesh.config.mts",
+    "start": "./node_modules/.bin/mesh dev",
     "start:extractor": "ts-node-esm scripts/extractor.ts",
     "extract": "ts-node-esm scripts/extractor.ts"
   },
@@ -15,6 +15,8 @@
     "node-fetch": "^3.3.2"
   },
   "devDependencies": {
+    "@graphql-mesh/cli": "latest",
+    "@graphql-mesh/graphql": "latest",
     "typescript": "^5.0.0",
     "ts-node": "^10.9.1",
     "@types/node": "^24.3.2",

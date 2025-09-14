@@ -20,3 +20,8 @@ dgraph-stack/config/
 
 # Environment
 .env
+
+
+AGENTS.md
+GEMINI.md
+PLAN.md

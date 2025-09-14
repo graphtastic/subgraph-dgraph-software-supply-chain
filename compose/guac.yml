@@ -23,8 +23,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # NATS is kept for potential use by collectors, though the core graphql
-  # service no longer uses it directly with the 'ent' backend.
   guac-nats:
     image: nats:2.9
     container_name: guac-nats
@@ -32,7 +30,6 @@ services:
       - guac_internal_net
     restart: on-failure
 
-  # The collectsub service gathers data from various collectors.
   guac-collectsub:
     image: ghcr.io/guacsec/guac:v1.0.0
     container_name: guac-collectsub
@@ -43,7 +40,6 @@ services:
     depends_on:
       - guac-nats
 
-  # The graphql service, configured to use the 'ent' backend with Postgres.
   guac-graphql:
     image: ghcr.io/guacsec/guac:v1.0.0
     container_name: guac-graphql
@@ -53,15 +49,21 @@ services:
       --db-driver postgres
       --db-address "postgres://guac:guac@guac-postgres:5432/guac?sslmode=disable"
       --gql-debug
+    ports:
+      - "8080:8080"
     networks:
       - guac_internal_net
+      - graphtastic_net # <-- ADDED: Exposes this service externally
     restart: on-failure
     depends_on:
       guac-postgres:
         condition: service_healthy
     volumes:
-      - ../sboms:/sboms
+      - ./sboms:/sboms # Note: relative path from project root
 
 networks:
   guac_internal_net:
     driver: bridge
+  graphtastic_net:
+    name: ${EXTERNAL_NETWORK_NAME:-graphtastic_net}
+    external: true

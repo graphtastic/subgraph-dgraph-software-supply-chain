@@ -1,67 +1,59 @@
-// Sanity Check (standalone script)
-// This script first does something silly, then runs useful infrastructure diagnostics.
-// It does NOT invoke or depend on the real extractor logic. It is safe to run in any environment.
+// Extractor: GUAC Mesh → RDF N-Quads for Dgraph (WIP)
+// This script is a functional diagnostic tool to test connectivity and data fetching
+// from the GraphQL Mesh endpoint.
 
-// --- Silly/goofy section ---
-console.log('🦄 Welcome to the Graphtastic Silly Smooth Sanity Summary!');
-console.log('Today, before we do anything useful, let us summon the power of the unicorn...');
-const unicorn = [
-  '           \\',
-  '            \\',
-  '             \\',
-  '              >\\/7',
-  '          _.-(6 6)-._',
-  '         (=  Y  =)',
-  '          /`-^--`\\',
-  '         /     |\\\\',
-  '        (  )-(  )\\\\',
-  '         ""   ""',
-];
-unicorn.forEach(line => console.log(line));
-console.log('✨ The unicorn has blessed your build. Proceeding with diagnostics...\n');
+import fetch from 'node-fetch';
 
-// --- Useful diagnostics section ---
-const execSync = require('child_process').execSync;
-function check(msg: string, fn: () => boolean) {
-  try {
-    if (fn()) {
-      console.log(`✅ ${msg}`);
-    } else {
-      console.log(`❌ ${msg}`);
+const MESH_ENDPOINT = process.env.MESH_ENDPOINT || 'http://localhost:4000/graphql';
+
+// A simple query to fetch some artifacts.
+const ARTIFACT_QUERY = `
+  query GetArtifacts {
+    artifacts(artifactSpec: {}) {
+      id
+      algorithm
+      digest
     }
-  } catch (e) {
-    console.log(`❌ ${msg} (error: ${e})`);
+  }
+`;
+
+async function main() {
+  console.log(`🚀 Graphtastic Extractor (Diagnostic Mode)`);
+  console.log(`📌 Targeting Mesh endpoint: ${MESH_ENDPOINT}`);
+
+  try {
+    console.log('\n\uD83D\uDD0D Sending query to Mesh...');
+    const response = await fetch(MESH_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: ARTIFACT_QUERY }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`HTTP error! Status: ${response.status} ${response.statusText}\nBody: ${errorBody}`);
+    }
+
+    const jsonResponse: any = await response.json();
+
+    if (jsonResponse.errors) {
+      console.error('❌ GraphQL query returned errors:');
+      console.error(JSON.stringify(jsonResponse.errors, null, 2));
+      process.exit(1);
+    }
+
+    console.log('✅ Successfully received data from Mesh:');
+    console.log(JSON.stringify(jsonResponse.data, null, 2));
+
+    // TODO: Implement the transformation from this JSON data to RDF N-Quads.
+    console.log('\n💾 (WIP) RDF transformation step would happen here.');
+    console.log('✨ Diagnostic run complete.');
+
+  } catch (error) {
+    console.error('❌ An error occurred during extraction:');
+    console.error(error);
+    process.exit(1);
   }
 }
 
-check('Test harness is running', () => true);
-check('Docker is available', () => {
-  const output = execSync('docker --version').toString();
-  return /Docker/.test(output);
-});
-check('Makefile is present', () => {
-  const fs = require('fs');
-  return fs.existsSync('../Makefile');
-});
-check('docker-compose.yml is present', () => {
-  const fs = require('fs');
-  return fs.existsSync('../docker-compose.yml');
-});
-try {
-  execSync('make check-dockerfiles', { stdio: 'inherit', cwd: '..' });
-  console.log('✅ All referenced Dockerfiles exist');
-} catch (e) {
-  console.log('❌ Some referenced Dockerfiles are missing');
-}
-try {
-  execSync('make up', { stdio: 'inherit', cwd: '..' });
-  console.log('✅ make up target runs (services start)');
-} catch (e) {
-  console.log('❌ make up target failed');
-}
-try {
-  execSync('make down', { stdio: 'inherit', cwd: '..' });
-  console.log('✅ make down target runs (services stop)');
-} catch (e) {
-  console.log('❌ make down target failed');
-}
+main();

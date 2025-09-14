@@ -2,15 +2,22 @@ services:
   extractor:
     build: ./guac-mesh-graphql
     image: guac-mesh-extractor:latest
-    command: ["node", "scripts/extractor.js"]
+    profiles: ["tools"]
+    command: ["npm", "run", "extract"]
     volumes:
-      - ../guac-mesh-graphql/build:/app/build
-      - ../guac-mesh-graphql/scripts:/app/scripts
+      # Mount the source code to allow for live changes without rebuilding
+      - ./guac-mesh-graphql:/app
+      - ./build:/app/build
     environment:
+      # Target the Mesh endpoint over the shared network
       - MESH_ENDPOINT=http://guac-mesh-graphql:4000/graphql
+      # Fallback to the raw GUAC endpoint if needed for debugging
+      - GUAC_ENDPOINT=http://guac-graphql:8080/query
     networks:
-      - default
-      - guac_internal_net
+      # Connect ONLY to the shared network to access public endpoints
+      - graphtastic_net
+
 networks:
-  guac_internal_net:
+  graphtastic_net:
+    name: ${EXTERNAL_NETWORK_NAME:-graphtastic_net}
     external: true
