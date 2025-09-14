@@ -1,13 +1,13 @@
 services:
   extractor:
-    build: ./guac-mesh-graphql
+    build: ../guac-mesh-graphql
     image: guac-mesh-extractor:latest
     profiles: ["tools"]
     command: ["npm", "run", "extract"]
     volumes:
       # Mount the source code to allow for live changes without rebuilding
-      - ./guac-mesh-graphql:/app
-      - ./build:/app/build
+      - ../guac-mesh-graphql:/app
+      - ../build:/app/build
     environment:
       - MESH_ENDPOINT=${MESH_ENDPOINT:-http://guac-mesh-graphql:4000/graphql}
       - GUAC_ENDPOINT=${GUAC_ENDPOINT:-http://guac-graphql:8080/query}

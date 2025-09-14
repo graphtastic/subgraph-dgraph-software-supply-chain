@@ -6,7 +6,7 @@ services:
     container_name: dgraph-zero
     volumes:
       - type: ${DGRAPH_DATA_MODE:-bind}
-        source: ${DGRAPH_DATA_VOLUME_ZERO:-./dgraph-stack/dgraph/zero}
+        source: ${DGRAPH_DATA_VOLUME_ZERO:-../dgraph-stack/dgraph/zero}
         target: /dgraph
     ports:
       - "${DGRAPH_ZERO_GRPC_PORT_HOST:-5081}:${DGRAPH_ZERO_GRPC_PORT:-5080}"
@@ -21,7 +21,7 @@ services:
     container_name: dgraph-alpha
     volumes:
       - type: ${DGRAPH_DATA_MODE:-bind}
-        source: ${DGRAPH_DATA_VOLUME_ALPHA:-./dgraph-stack/dgraph/alpha}
+        source: ${DGRAPH_DATA_VOLUME_ALPHA:-../dgraph-stack/dgraph/alpha}
         target: /dgraph
     ports:
       - "${DGRAPH_ALPHA_HTTP_PORT_HOST:-8081}:${DGRAPH_ALPHA_HTTP_PORT:-8080}"
@@ -50,16 +50,16 @@ services:
     profiles: ["tools"]
     volumes:
       - type: bind
-        source: ./build
+        source: ../build
         target: /dgraph/build
       - type: bind
-        source: ./schema
+        source: ../schema
         target: /dgraph/schema
       - type: bind
-        source: ./guac-mesh-graphql/benchmark
+        source: ../guac-mesh-graphql/benchmark
         target: /dgraph/benchmark
       - type: bind
-        source: ./out
+        source: ../out
         target: /dgraph/out
     working_dir: /dgraph
     command: echo "This service is intended to be run with 'make demo-1m' or similar."
