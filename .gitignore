@@ -12,16 +12,10 @@ yarn-error.log*
 build/
 
 # Dgraph persistent data
-dgraph-stack/
 sboms/
 build/
-dgraph-stack/dgraph/
-dgraph-stack/config/
 
 # Environment
 .env
 
-
-AGENTS.md
-GEMINI.md
-PLAN.md
+runtime-data/
