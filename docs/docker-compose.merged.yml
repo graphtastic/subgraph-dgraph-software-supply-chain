@@ -1,0 +1,172 @@
+name: subgraph-dgraph-software-supply-chain
+services:
+  dgraph-alpha:
+    command:
+      - dgraph
+      - alpha
+      - --my=dgraph-alpha:7080
+      - --zero=dgraph-zero:5080
+      - --security
+      - whitelist=0.0.0.0/0
+    container_name: dgraph-alpha
+    depends_on:
+      dgraph-zero:
+        condition: service_started
+        required: true
+    image: dgraph/dgraph:latest
+    networks:
+      dgraph_internal_net: null
+      graphtastic_net: null
+    ports:
+      - mode: ingress
+        target: 8080
+        published: "8081"
+        protocol: tcp
+      - mode: ingress
+        target: 9080
+        published: "9081"
+        protocol: tcp
+    restart: on-failure
+    volumes:
+      - type: bind
+        source: /Users/matt/gh/graphtastic/subgraph-dgraph-software-supply-chain/compose/dgraph_alpha_data
+        target: /dgraph
+  dgraph-ratel:
+    container_name: dgraph-ratel
+    image: dgraph/ratel:latest
+    networks:
+      dgraph_internal_net: null
+      graphtastic_net: null
+    ports:
+      - mode: ingress
+        target: 8000
+        published: "8001"
+        protocol: tcp
+    restart: on-failure
+  dgraph-zero:
+    command:
+      - dgraph
+      - zero
+      - --my=dgraph-zero:5080
+    container_name: dgraph-zero
+    image: dgraph/dgraph:latest
+    networks:
+      dgraph_internal_net: null
+    ports:
+      - mode: ingress
+        target: 5080
+        published: "5081"
+        protocol: tcp
+      - mode: ingress
+        target: 6080
+        published: "6081"
+        protocol: tcp
+    restart: on-failure
+    volumes:
+      - type: bind
+        source: /Users/matt/gh/graphtastic/subgraph-dgraph-software-supply-chain/compose/dgraph_zero_data
+        target: /dgraph
+  guac-collectsub:
+    command:
+      - /opt/guac/guaccsub
+    container_name: guac-collectsub
+    depends_on:
+      guac-nats:
+        condition: service_started
+        required: true
+    image: ghcr.io/guacsec/guac:v1.0.0
+    networks:
+      guac_internal_net: null
+    restart: on-failure
+  guac-graphql:
+    command:
+      - /opt/guac/guacgql
+      - --gql-backend
+      - ent
+      - --db-driver
+      - postgres
+      - --db-address
+      - postgres://guac:guac@guac-postgres:5432/guac?sslmode=disable
+      - --gql-debug
+    container_name: guac-graphql
+    depends_on:
+      guac-postgres:
+        condition: service_healthy
+        required: true
+    image: ghcr.io/guacsec/guac:v1.0.0
+    networks:
+      graphtastic_net: null
+      guac_internal_net: null
+    ports:
+      - mode: ingress
+        target: 8080
+        published: "8080"
+        protocol: tcp
+    restart: on-failure
+    volumes:
+      - type: bind
+        source: /Users/matt/gh/graphtastic/subgraph-dgraph-software-supply-chain/sboms
+        target: /sboms
+        bind:
+          create_host_path: true
+  guac-mesh-graphql:
+    build:
+      context: /Users/matt/gh/graphtastic/subgraph-dgraph-software-supply-chain/guac-mesh-graphql
+      dockerfile: Dockerfile
+    container_name: guac-mesh-graphql
+    depends_on:
+      guac-graphql:
+        condition: service_started
+        required: true
+    networks:
+      graphtastic_net: null
+    ports:
+      - mode: ingress
+        target: 4000
+        published: "4000"
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: /Users/matt/gh/graphtastic/subgraph-dgraph-software-supply-chain/guac-mesh-graphql
+        target: /app
+        bind:
+          create_host_path: true
+  guac-nats:
+    container_name: guac-nats
+    image: nats:2.9
+    networks:
+      guac_internal_net: null
+    restart: on-failure
+  guac-postgres:
+    container_name: guac-postgres
+    environment:
+      POSTGRES_DB: guac
+      POSTGRES_PASSWORD: guac
+      POSTGRES_USER: guac
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U guac -d guac
+      timeout: 5s
+      interval: 10s
+      retries: 5
+    image: postgres:13
+    networks:
+      guac_internal_net: null
+    restart: on-failure
+    volumes:
+      - type: bind
+        source: /Users/matt/gh/graphtastic/subgraph-dgraph-software-supply-chain/compose/dgraph-stack/guac-data
+        target: /var/lib/postgresql/data
+        bind:
+          create_host_path: true
+networks:
+  dgraph_internal_net:
+    name: subgraph-dgraph-software-supply-chain_dgraph_internal_net
+    driver: bridge
+  graphtastic_net:
+    name: guac-network
+    external: true
+  guac_internal_net:
+    name: subgraph-dgraph-software-supply-chain_guac_internal_net
+    driver: bridge
