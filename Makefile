@@ -21,36 +21,40 @@
 export COMPOSE_FILE ?= docker-compose.yml
 
 # --- Core Networking & Compose ---
+export EXTERNAL_NETWORK_NAME ?= graphtastic-network
 
-# Name of the shared Docker network
-export EXTERNAL_NETWORK_NAME ?= guac-network
+# --- Universal Persistence Configuration ---
+# A single switch to control data mode for ALL services ('bind' or 'volume')
+export PERSISTENCE_MODE ?= bind
+# The base path for all bind-mounted data.
+
+# We use $(shell pwd) to generate an absolute path, overriding Compose's relative context.
+export DATA_BASE_PATH ?= $(shell pwd)
 
 # --- Dgraph Stack Configuration ---
-# Comma-separated list of IP CIDRs for Dgraph Alpha access (default: allow all for local dev)
 export DGRAPH_ALPHA_WHITELIST ?= 0.0.0.0/0
 
-# 'bind' for host-mounted directories, 'volume' for Docker volumes
-export DGRAPH_DATA_MODE ?= bind
-export DGRAPH_DATA_VOLUME_ZERO ?= dgraph_zero_data
-export DGRAPH_DATA_VOLUME_ALPHA ?= dgraph_alpha_data
-
 # --- GUAC Stack Configuration ---
-
-# Host path for GUAC Postgres data
-export GUAC_DATA_PATH ?= ./dgraph-stack/guac-data
 export POSTGRES_DB ?= guac
 export POSTGRES_USER ?= guac
 export POSTGRES_PASSWORD ?= guac
-# Full database connection string for GUAC services, built from the parts above
-export GUAC_DB_ADDRESS ?= postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@guac-postgres:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable
 
+# --- Context-Aware Persistence Variables ---
+# Only export the variables relevant to the chosen PERSISTENCE_MODE
+ifeq ($(PERSISTENCE_MODE),volume)
+  export DGRAPH_DATA_VOLUME_ZERO ?= dgraph_zero_data
+  export DGRAPH_DATA_VOLUME_ALPHA ?= dgraph_alpha_data
+  export GUAC_POSTGRES_DATA_VOLUME ?= guac_postgres_data
+endif
+
+# Full database connection string, built from parts
+export GUAC_DB_ADDRESS ?= postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@guac-postgres:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable
 
 # --- Mesh/Extractor endpoints ---
 export MESH_ENDPOINT ?= http://guac-mesh-graphql:4000/graphql
 export GUAC_ENDPOINT ?= http://guac-graphql:8080/query
 
 # --- Tooling Configuration ---
-
 # Set to 1 to run tools like extractor locally instead of in containers
 export USE_LOCAL_TOOLS ?= 0
 
@@ -88,10 +92,9 @@ export POSTGRES_PORT ?= 5432
 export POSTGRES_PORT_HOST ?= 5432
 
 # ============================================================================
-# === Project-Specific Paths ===
+# === Project-Specific Paths (for internal Makefile use) ===
 # ============================================================================
 
-DGRAPH_STACK_DIR := dgraph-stack
 BUILD_DIR := build
 SBOMS_DIR := sboms
 BENCHMARK_DIR := guac-mesh-graphql/benchmark
@@ -107,7 +110,7 @@ DGRAPH_BULK_ARGS := --map_shards=1 --reduce_shards=1 --zero=dgraph-zero:5080
 
 .PHONY: help setup up down clean status logs
 .PHONY: ingest-sboms extract demo-1m
-.PHONY: fetch-benchmark-data validate check-dockerfiles lint-makefile lint
+.PHONY: fetch-benchmark-data validate check-dockerfiles lint
 .PHONY: print-vars print-docker-networks print-docker-volumes
 .PHONY: var-% clean-dgraph-zero preflight
 .PHONY: generate-compose-config-only
@@ -131,13 +134,16 @@ print-vars:
 	@echo ""
 	@echo "[Core Networking & Compose]"
 	@echo "  EXTERNAL_NETWORK_NAME = $(EXTERNAL_NETWORK_NAME)"
-	@echo "  COMPOSE_FILE         = $(COMPOSE_FILE)"
+	@echo "  COMPOSE_FILE          = $(COMPOSE_FILE)"
+	@echo ""
+	@echo "[Universal Persistence]"
+	@echo "  PERSISTENCE_MODE      = $(PERSISTENCE_MODE)"
+	@echo "  DATA_BASE_PATH        = $(DATA_BASE_PATH)"
 	@echo ""
 	@echo "[Dgraph Stack]"
-	@echo "  DGRAPH_ALPHA_WHITELIST = $(DGRAPH_ALPHA_WHITELIST)"
-	@echo "  DGRAPH_DATA_MODE       = $(DGRAPH_DATA_MODE)"
-	@echo "  DGRAPH_DATA_VOLUME_ZERO = $(DGRAPH_DATA_VOLUME_ZERO)"
-	@echo "  DGRAPH_DATA_VOLUME_ALPHA = $(DGRAPH_DATA_VOLUME_ALPHA)"
+	@echo "  DGRAPH_ALPHA_WHITELIST    = $(DGRAPH_ALPHA_WHITELIST)"
+	@echo "  (volume) DGRAPH_DATA_VOLUME_ZERO = $(DGRAPH_DATA_VOLUME_ZERO)"
+	@echo "  (volume) DGRAPH_DATA_VOLUME_ALPHA = $(DGRAPH_DATA_VOLUME_ALPHA)"
 	@echo ""
 	@echo "[Dgraph Ports]"
 	@echo "  DGRAPH_ZERO_GRPC_PORT_HOST = $(DGRAPH_ZERO_GRPC_PORT_HOST)"
@@ -152,15 +158,15 @@ print-vars:
 	@echo "  DGRAPH_RATEL_PORT           = $(DGRAPH_RATEL_PORT)"
 	@echo ""
 	@echo "[GUAC Stack]"
-	@echo "  POSTGRES_DB        = $(POSTGRES_DB)"
-	@echo "  POSTGRES_USER      = $(POSTGRES_USER)"
-	@echo "  POSTGRES_PASSWORD  = $(POSTGRES_PASSWORD)"
-	@echo "  GUAC_DATA_PATH     = $(GUAC_DATA_PATH)"
-	@echo "  GUAC_DB_ADDRESS    = $(GUAC_DB_ADDRESS)"
-	@echo "  POSTGRES_PORT_HOST = $(POSTGRES_PORT_HOST)"
-	@echo "  POSTGRES_PORT      = $(POSTGRES_PORT)"
-	@echo "  GUAC_GRAPHQL_PORT_HOST = $(GUAC_GRAPHQL_PORT_HOST)"
-	@echo "  GUAC_GRAPHQL_PORT      = $(GUAC_GRAPHQL_PORT)"
+	@echo "  POSTGRES_DB                 = $(POSTGRES_DB)"
+	@echo "  POSTGRES_USER               = $(POSTGRES_USER)"
+	@echo "  POSTGRES_PASSWORD           = $(POSTGRES_PASSWORD)"
+	@echo "  (volume) GUAC_POSTGRES_DATA_VOLUME = $(GUAC_POSTGRES_DATA_VOLUME)"
+	@echo "  GUAC_DB_ADDRESS             = $(GUAC_DB_ADDRESS)"
+	@echo "  POSTGRES_PORT_HOST          = $(POSTGRES_PORT_HOST)"
+	@echo "  POSTGRES_PORT               = $(POSTGRES_PORT)"
+	@echo "  GUAC_GRAPHQL_PORT_HOST      = $(GUAC_GRAPHQL_PORT_HOST)"
+	@echo "  GUAC_GRAPHQL_PORT           = $(GUAC_GRAPHQL_PORT)"
 	@echo ""
 	@echo "[Mesh/Extractor]"
 	@echo "  MESH_ENDPOINT      = $(MESH_ENDPOINT)"
@@ -194,23 +200,23 @@ print-docker-volumes:
 
 lint:
 	@echo "--- Running linter ---"
-	@echo "1. Checking Makefile for space indentations..."
-	@if grep -n '^ ' Makefile; then \
+	@FOUND_ERROR=0; \
+	if grep -n '^ ' Makefile; then \
 		echo "❌ ERROR: Makefile contains space-indented lines. Please use tabs for recipes."; \
 		FOUND_ERROR=1; \
 	else \
 		echo "✅ OK: No space indentations found."; \
-	fi
-	@echo "\n2. Checking for trailing whitespace in config files..."
-	@FILES_TO_CHECK="Makefile .env.example compose/*.yml"; \
+	fi; \
+	echo "\n2. Checking for trailing whitespace in config files..."; \
+	FILES_TO_CHECK="Makefile .env.example compose/*.yml"; \
 	if ! grep -nE '[ \t]+$$' $$FILES_TO_CHECK; then \
 		echo "✅ OK: No trailing whitespace found."; \
 	else \
 		echo "❌ ERROR: Found trailing whitespace in the files listed above. Please remove it."; \
 		FOUND_ERROR=1; \
-	fi
-	@echo "\n--- Linter finished ---"
-	@if [ "$$FOUND_ERROR" = "1" ]; then \
+	fi; \
+	echo "\n--- Linter finished ---"; \
+	if [ "$$FOUND_ERROR" -eq 1 ]; then \
 		exit 1; \
 	fi
 
@@ -252,7 +258,6 @@ help:
 	@echo "  See .env.example for all options and documentation."
 
 # Prepare the local environment: create networks, volumes, and directories.
-# This target is now non-interactive and CI/CD friendly.
 preflight:
 	@echo "--- Running preflight checks ---"
 	# Check for a conflicting 'dgraph-zero' container and fail with a clear, actionable error.
@@ -262,18 +267,20 @@ preflight:
 		printf "\033[1;33m%s\033[0m\n\n" "   Run 'make clean' or 'make clean-dgraph-zero' to fix it, then try again."; \
 		exit 1; \
 	fi
-	@echo "--- Initializing shared resources ---"
+	@echo "--- Initializing shared resources (Mode: $(PERSISTENCE_MODE)) ---"
 	@docker network create "$(EXTERNAL_NETWORK_NAME)" >/dev/null 2>&1 || true
-	@if [ "$(DGRAPH_DATA_MODE)" = "volume" ]; then \
-		echo "INFO: Dgraph data mode is 'volume', ensuring volumes exist..."; \
+	@if [ "$(PERSISTENCE_MODE)" = "volume" ]; then \
+		echo "INFO: Creating Docker volumes..."; \
 		docker volume create "$(DGRAPH_DATA_VOLUME_ZERO)" >/dev/null 2>&1 || true; \
 		docker volume create "$(DGRAPH_DATA_VOLUME_ALPHA)" >/dev/null 2>&1 || true; \
+		docker volume create "$(GUAC_POSTGRES_DATA_VOLUME)" >/dev/null 2>&1 || true; \
 	else \
-		echo "INFO: Dgraph data mode is 'bind', ensuring directories exist..."; \
-		mkdir -p "$(DGRAPH_STACK_DIR)/dgraph/zero"; \
-		mkdir -p "$(DGRAPH_STACK_DIR)/dgraph/alpha"; \
+		echo "INFO: Creating host bind mount directories..."; \
+		mkdir -p "$(DATA_BASE_PATH)/runtime-data/dgraph/zero"; \
+		mkdir -p "$(DATA_BASE_PATH)/runtime-data/dgraph/alpha"; \
+		mkdir -p "$(DATA_BASE_PATH)/runtime-data/guac-postgres"; \
 	fi
-	mkdir -p "$(SBOMS_DIR)" "$(BUILD_DIR)" "$(SCHEMA_DIR)" "$(OUT_DIR)"
+	mkdir -p "$(DATA_BASE_PATH)/$(SBOMS_DIR)" "$(DATA_BASE_PATH)/$(BUILD_DIR)" "$(DATA_BASE_PATH)/$(SCHEMA_DIR)" "$(DATA_BASE_PATH)/$(OUT_DIR)"
 
 # Setup now simply depends on preflight, the actual setup logic is in preflight.
 setup: preflight
@@ -289,15 +296,15 @@ down:
 
 # Clean all persistent data and build artifacts
 clean: down
-	@echo "--- Cleaning up persistent data and build artifacts ---"
-	@if [ "$(DGRAPH_DATA_MODE)" = "volume" ]; then \
-		echo "INFO: Removing Dgraph Docker volumes..."; \
-		docker volume rm "$(DGRAPH_DATA_VOLUME_ZERO)" "$(DGRAPH_DATA_VOLUME_ALPHA)" >/dev/null 2>&1 || true; \
+	@echo "--- Cleaning up persistent data and build artifacts (Mode: $(PERSISTENCE_MODE)) ---"
+	@if [ "$(PERSISTENCE_MODE)" = "volume" ]; then \
+		echo "INFO: Removing Docker volumes..."; \
+		docker volume rm "$(DGRAPH_DATA_VOLUME_ZERO)" "$(DGRAPH_DATA_VOLUME_ALPHA)" "$(GUAC_POSTGRES_DATA_VOLUME)" >/dev/null 2>&1 || true; \
 	else \
-		echo "INFO: Removing Dgraph bind mount directories..."; \
-		rm -rf "$(DGRAPH_STACK_DIR)/dgraph/zero" "$(DGRAPH_STACK_DIR)/dgraph/alpha"; \
+		echo "INFO: Removing host bind mount directories..."; \
+		rm -rf "$(DATA_BASE_PATH)/runtime-data"; \
 	fi
-	rm -rf "$(BUILD_DIR)" "$(OUT_DIR)" "$(GUAC_DATA_PATH)" "$(BENCHMARK_DIR)"
+	rm -rf "$(DATA_BASE_PATH)/$(BUILD_DIR)" "$(DATA_BASE_PATH)/$(OUT_DIR)" "$(DATA_BASE_PATH)/$(BENCHMARK_DIR)"
 	@docker network rm "$(EXTERNAL_NETWORK_NAME)" >/dev/null 2>&1 || true
 	@echo "--- Cleanup complete ---"
 
@@ -313,8 +320,8 @@ status:
 	$(MAKE) print-vars
 	@echo "\n--- Merged Docker Compose Config ---"
 	@mkdir -p docs
-	docker compose -f "$(COMPOSE_FILE)" config > docs/docker-compose.merged.yaml
-	@echo "Merged config written to docs/docker-compose.merged.yaml"
+	docker compose -f "$(COMPOSE_FILE)" config > docs/docker-compose.merged.yml
+	@echo "Merged config written to docs/docker-compose.merged.yml"
 
 logs: preflight
 	docker compose -f "$(COMPOSE_FILE)" logs -f
@@ -348,11 +355,11 @@ demo-1m: preflight clean setup fetch-benchmark-data
 	@echo "--- [DEMO] Bulk load finished. Bringing down Zero. ---"
 	docker compose -f compose/dgraph.yml down
 	@echo "--- [DEMO] Moving generated data into place for Alpha..."
-	if [ "$(DGRAPH_DATA_MODE)" = "volume" ]; then \
+	if [ "$(PERSISTENCE_MODE)" = "volume" ]; then \
 		echo "ERROR: Bulk loader demo does not support 'volume' mode yet. Please use 'bind' mode."; exit 1; \
 	fi
-	mv "$(OUT_DIR)/0/p" "$(DGRAPH_STACK_DIR)/dgraph/alpha/"
-	rm -rf "$(OUT_DIR)"
+	mv "$(DATA_BASE_PATH)/$(OUT_DIR)/0/p" "$(DATA_BASE_PATH)/runtime-data/dgraph/alpha/"
+	rm -rf "$(DATA_BASE_PATH)/$(OUT_DIR)"
 	@echo "--- [DEMO] Starting all services with newly loaded data ---"
 	$(MAKE) up
 	@echo "--- [DEMO] Done. Dgraph is populated. Access Ratel at http://localhost:$(DGRAPH_RATEL_PORT_HOST) ---"
@@ -393,4 +400,3 @@ check-dockerfiles: preflight
 	if [ "$$missing" -eq 0 ]; then \
 	  echo "✅ All referenced Dockerfiles are present."; \
 	fi; exit $$missing
-	

@@ -5,8 +5,8 @@ services:
     image: dgraph/dgraph:latest
     container_name: dgraph-zero
     volumes:
-      - type: ${DGRAPH_DATA_MODE:-bind}
-        source: ${DGRAPH_DATA_VOLUME_ZERO:-../dgraph-stack/dgraph/zero}
+      - type: ${PERSISTENCE_MODE:-bind}
+        source: ${DGRAPH_DATA_VOLUME_ZERO:-${DATA_BASE_PATH:-.}/runtime-data/dgraph/zero}
         target: /dgraph
     ports:
       - "${DGRAPH_ZERO_GRPC_PORT_HOST:-5081}:${DGRAPH_ZERO_GRPC_PORT:-5080}"
@@ -20,8 +20,8 @@ services:
     image: dgraph/dgraph:latest
     container_name: dgraph-alpha
     volumes:
-      - type: ${DGRAPH_DATA_MODE:-bind}
-        source: ${DGRAPH_DATA_VOLUME_ALPHA:-../dgraph-stack/dgraph/alpha}
+      - type: ${PERSISTENCE_MODE:-bind}
+        source: ${DGRAPH_DATA_VOLUME_ALPHA:-${DATA_BASE_PATH:-.}/runtime-data/dgraph/alpha}
         target: /dgraph
     ports:
       - "${DGRAPH_ALPHA_HTTP_PORT_HOST:-8081}:${DGRAPH_ALPHA_HTTP_PORT:-8080}"
@@ -50,16 +50,16 @@ services:
     profiles: ["tools"]
     volumes:
       - type: bind
-        source: ../build
+        source: ${DATA_BASE_PATH:-.}/build
         target: /dgraph/build
       - type: bind
-        source: ../schema
+        source: ${DATA_BASE_PATH:-.}/schema
         target: /dgraph/schema
       - type: bind
-        source: ../guac-mesh-graphql/benchmark
+        source: ${DATA_BASE_PATH:-.}/guac-mesh-graphql/benchmark
         target: /dgraph/benchmark
       - type: bind
-        source: ../out
+        source: ${DATA_BASE_PATH:-.}/out
         target: /dgraph/out
     working_dir: /dgraph
     command: echo "This service is intended to be run with 'make demo-1m' or similar."

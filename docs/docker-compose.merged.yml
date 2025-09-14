@@ -29,7 +29,7 @@ services:
     restart: on-failure
     volumes:
       - type: bind
-        source: /Users/matt/gh/graphtastic/subgraph-dgraph-software-supply-chain/compose/dgraph_alpha_data
+        source: /Users/matt/gh/graphtastic/subgraph-dgraph-software-supply-chain/runtime-data/dgraph/alpha
         target: /dgraph
   dgraph-ratel:
     container_name: dgraph-ratel
@@ -64,7 +64,7 @@ services:
     restart: on-failure
     volumes:
       - type: bind
-        source: /Users/matt/gh/graphtastic/subgraph-dgraph-software-supply-chain/compose/dgraph_zero_data
+        source: /Users/matt/gh/graphtastic/subgraph-dgraph-software-supply-chain/runtime-data/dgraph/zero
         target: /dgraph
   guac-collectsub:
     command:
@@ -107,8 +107,6 @@ services:
       - type: bind
         source: /Users/matt/gh/graphtastic/subgraph-dgraph-software-supply-chain/sboms
         target: /sboms
-        bind:
-          create_host_path: true
   guac-mesh-graphql:
     build:
       context: /Users/matt/gh/graphtastic/subgraph-dgraph-software-supply-chain/guac-mesh-graphql
@@ -156,16 +154,14 @@ services:
     restart: on-failure
     volumes:
       - type: bind
-        source: /Users/matt/gh/graphtastic/subgraph-dgraph-software-supply-chain/compose/dgraph-stack/guac-data
+        source: /Users/matt/gh/graphtastic/subgraph-dgraph-software-supply-chain/runtime-data/guac-postgres
         target: /var/lib/postgresql/data
-        bind:
-          create_host_path: true
 networks:
   dgraph_internal_net:
     name: subgraph-dgraph-software-supply-chain_dgraph_internal_net
     driver: bridge
   graphtastic_net:
-    name: guac-network
+    name: graphtastic-network
     external: true
   guac_internal_net:
     name: subgraph-dgraph-software-supply-chain_guac_internal_net

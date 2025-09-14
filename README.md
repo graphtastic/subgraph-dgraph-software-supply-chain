@@ -12,73 +12,52 @@ This repository contains the source code, operational configuration, and detaile
 
 This subgraph serves two primary, strategic purposes:
 
-1.  **CNCF Demonstrator:** To act as a reference implementation and standalone demonstrator for the [CNCF Software Supply Chain Insights initiative](https://github.com/cncf/toc/issues/1709).
-2.  **Federated Spoke:** To function as a fully compliant, federated Spoke within the Graphtastic supergraph, aggregating and exposing security data from multiple sources.
+1. **CNCF Demonstrator:** To act as a reference implementation and standalone demonstrator for the [CNCF Software Supply Chain Insights initiative](https://github.com/cncf/toc/issues/1709).
+2. **Federated Spoke:** To function as a fully compliant, federated Spoke within the Graphtastic supergraph, aggregating and exposing security data from multiple sources.
 
 ### 1.2. Core Technology
 
 Our architecture is built on a foundation of powerful, cloud-native technologies:
 
-*   **Data Source:** [GUAC (Graph for Understanding Artifact Composition)](https://guac.sh/) instances, which generate rich software supply chain metadata.
-*   **Persistence Layer:** [Dgraph](https://dgraph.io/), a distributed, native GraphQL graph database chosen for its horizontal scalability and high-performance query capabilities.
-*   **API Layer:** A GraphQL API designed from the ground up to be compliant with the [Apollo Federation](https://www.apollographql.com/docs/federation/) specification, using [GraphQL Mesh](https://the-guild.dev/graphql/mesh) as a transformation sidecar.
-*   **Development Environment:** A modular, multi-stack [Docker Compose](https://docs.docker.com/compose/) environment, orchestrated with `make` for a seamless and reproducible developer experience.
-
+* **Data Source:** [GUAC (Graph for Understanding Artifact Composition)](https://guac.sh/) instances, which generate rich software supply chain metadata.
+* **Persistence Layer:** [Dgraph](https://dgraph.io/), a distributed, native GraphQL graph database chosen for its horizontal scalability and high-performance query capabilities.
+* **API Layer:** A GraphQL API designed from the ground up to be compliant with the [Apollo Federation](https://www.apollographql.com/docs/federation/) specification, using [GraphQL Mesh](https://the-guild.dev/graphql/mesh) as a transformation sidecar.
+* **Development Environment:** A modular, multi-stack [Docker Compose](https://docs.docker.com/compose/) environment, orchestrated with `make` for a seamless and reproducible developer experience.
 
 ## 2. Environment Variables & Configuration
 
-This project is fully configurable via environment variables, which can be set in a `.env` file, in your shell, or via CI/CD. All variables have sensible defaults and are documented below. See `.env.example` for a template.
+This project is fully configurable via environment variables defined in the `Makefile`. You can override any default by creating a `.env` file in the project root. See the `.env.example` file for a complete template.
 
+| Variable | Default Value | Description |
+|---|---|---|
+| **Core & Networking** |||
+| `EXTERNAL_NETWORK_NAME` | `graphtastic-network` | Name of the shared Docker network connecting all stacks. |
+| `COMPOSE_FILE` | `docker-compose.yml` | Main Compose file used by `make`. |
+| **Universal Persistence** |||
+| `PERSISTENCE_MODE` | `bind` | Global data storage mode: `bind` or `volume`. |
+| `DATA_BASE_PATH` | `.` (project root) | Base path for all `bind` mounted data directories. |
+| **Dgraph Stack** |||
+| `DGRAPH_ALPHA_WHITELIST` | `0.0.0.0/0` | Dgraph Alpha IP whitelist for admin actions. |
+| `DGRAPH_DATA_VOLUME_ZERO` | `dgraph_zero_data` | Name for Dgraph Zero's data volume (in `volume` mode). |
+| `DGRAPH_DATA_VOLUME_ALPHA` | `dgraph_alpha_data` | Name for Dgraph Alpha's data volume (in `volume` mode). |
+| **GUAC Stack** |||
+| `POSTGRES_DB` | `guac` | GUAC Postgres database name. |
+| `POSTGRES_USER` | `guac` | GUAC Postgres user. |
+| `POSTGRES_PASSWORD` | `guac` | GUAC Postgres password. |
+| `GUAC_POSTGRES_DATA_VOLUME`| `guac_postgres_data`| Name for GUAC Postgres' data volume (in `volume` mode). |
+| **Tooling** |||
+| `USE_LOCAL_TOOLS` | `0` | Run tools natively on host (`1`) or in container (`0`). |
 
-| Variable                        | Default Value                                 | Description |
-|----------------------------------|-----------------------------------------------|-------------|
-| **Core Networking & Compose**    |||
-| `EXTERNAL_NETWORK_NAME`          | `graphtastic_net`                            | Name of the shared Docker network connecting all stacks |
-| `COMPOSE_FILE`                   | `docker-compose.yml`                         | Main Compose file |
-| **Dgraph Stack**                 |||
-| `DGRAPH_ALPHA_WHITELIST`         | `0.0.0.0/0`                                  | Dgraph Alpha IP whitelist |
-| `DGRAPH_DATA_MODE`               | `bind`                                       | Dgraph data storage mode: `bind` or `volume` |
-| `DGRAPH_DATA_VOLUME`             | `dgraph_data`                                | Dgraph data volume name |
-| `DGRAPH_DATA_VOLUME_ZERO`        | `dgraph_data_zero`                           | Dgraph Zero volume name |
-| `DGRAPH_DATA_VOLUME_ALPHA`       | `dgraph_data_alpha`                          | Dgraph Alpha volume name |
-| **Dgraph Ports**                 |||
-| `DGRAPH_ZERO_GRPC_PORT`          | `5080`                                       | Dgraph Zero gRPC port (container) |
-| `DGRAPH_ZERO_GRPC_PORT_HOST`     | `5081`                                       | Dgraph Zero gRPC port (host) |
-| `DGRAPH_ZERO_HTTP_PORT`          | `6080`                                       | Dgraph Zero HTTP port (container) |
-| `DGRAPH_ZERO_HTTP_PORT_HOST`     | `6081`                                       | Dgraph Zero HTTP port (host) |
-| `DGRAPH_ALPHA_GRPC_PORT`         | `9080`                                       | Dgraph Alpha gRPC port (container) |
-| `DGRAPH_ALPHA_GRPC_PORT_HOST`    | `9081`                                       | Dgraph Alpha gRPC port (host) |
-| `DGRAPH_ALPHA_HTTP_PORT`         | `8080`                                       | Dgraph Alpha HTTP port (container) |
-| `DGRAPH_ALPHA_HTTP_PORT_HOST`    | `8081`                                       | Dgraph Alpha HTTP port (host) |
-| `DGRAPH_RATEL_PORT`              | `8000`                                       | Dgraph Ratel UI port (container) |
-| `DGRAPH_RATEL_PORT_HOST`         | `8001`                                       | Dgraph Ratel UI port (host) |
-| **GUAC Stack**                   |||
-| `POSTGRES_DB`                    | `guac`                                       | GUAC Postgres database name |
-| `POSTGRES_USER`                  | `guac`                                       | GUAC Postgres user |
-| `POSTGRES_PASSWORD`              | `guac`                                       | GUAC Postgres password |
-| `GUAC_DATA_PATH`                 | `./dgraph-stack/guac-data`                   | GUAC Postgres data path |
-| `POSTGRES_PORT`                  | `5432`                                       | Postgres port (container) |
-| `POSTGRES_PORT_HOST`             | `5432`                                       | Postgres port (host) |
-| `GUAC_GRAPHQL_PORT`              | `8080`                                       | GUAC GraphQL API port (container) |
-| `GUAC_GRAPHQL_PORT_HOST`         | `8080`                                       | GUAC GraphQL API port (host) |
-| **Mesh/Extractor**               |||
-| `MESH_ENDPOINT`                  | `http://guac-mesh-graphql:4000/graphql`      | Mesh GraphQL endpoint |
-| `GUAC_ENDPOINT`                  | `http://guac-graphql:8080/query`             | GUAC GraphQL endpoint |
-| `MESH_GRAPHQL_PORT`              | `4000`                                       | Mesh GraphQL API port (container) |
-| `MESH_GRAPHQL_PORT_HOST`         | `4000`                                       | Mesh GraphQL API port (host) |
-| **Tooling**                      |||
-| `USE_LOCAL_TOOLS`                | `1`                                          | Run tools natively (1) or in container |
-
-You can override any variable by setting it in your `.env` file or exporting it in your shell before running `make`.
+*Note: Port mappings are also configurable as variables. See the `Makefile` or `.env.example` for a full list.*
 
 ---
 
 ### 2.1. Prerequisites
 
-*   Docker Engine and the Docker Compose CLI plugin
-*   `make`
-*   `wget` (for the `make fetch-benchmark-data` target)
-*   `nc` (netcat, for the `make validate` target)
+* Docker Engine and the Docker Compose CLI plugin
+* `make`
+* `wget` (for the `make fetch-benchmark-data` target)
+* `nc` (netcat, for the `make validate` target)
 
 ### 2.2. Getting Started: A Functional Demo in One Command
 
@@ -91,40 +70,50 @@ make demo-1m
 ```
 
 This single command will:
-1.  Clean any previous environment.
-2.  Create the necessary Docker networks and volumes.
-3.  Download the benchmark RDF data.
-4.  Run the Dgraph Bulk Loader to ingest the data.
-5.  Start the complete, populated application stack.
+
+1. Clean any previous environment.
+2. Create the necessary Docker networks and data directories/volumes.
+3. Download the benchmark RDF data.
+4. Run the Dgraph Bulk Loader to ingest the data.
+5. Start the complete, populated application stack.
 
 After the command completes, you can access the services:
 
-*   **Dgraph Ratel UI:** [http://localhost:8001](http://localhost:8001)
-*   **Dgraph GraphQL Endpoint:** [http://localhost:8081/graphql](http://localhost:8081/graphql)
-*   **GUAC Mesh GraphQL Endpoint:** [http://localhost:4000/graphql](http://localhost:4000/graphql)
-*   **GUAC GraphQL Endpoint (raw):** [http://localhost:8080/query](http://localhost:8080/query)
+* **Dgraph Ratel UI:** [http://localhost:8001](http://localhost:8001)
+* **Dgraph GraphQL Endpoint:** [http://localhost:8081/graphql](http://localhost:8081/graphql)
+* **GUAC Mesh GraphQL Endpoint:** [http://localhost:4000/graphql](http://localhost:4000/graphql)
+* **GUAC GraphQL Endpoint (raw):** [http://localhost:8080/query](http://localhost:8080/query)
 
 ### 2.3. Day-to-Day Workflow
 
 Once the demo is running, or if you want to start an empty environment, use the standard lifecycle commands.
 
-1.  **(First time only) Set up the environment:**
+1. **(First time only) Set up the environment:**
+
     ```bash
     make setup
     ```
-2.  **Launch the stack:**
+
+2. **Launch the stack:**
+
     ```bash
     make up
     ```
-3.  **Validate the running environment:**
+
+3. **Validate the running environment:**
+
     ```bash
     make validate
     ```
-4.  **Tear down the environment:**
+
+4. **Tear down the environment:**
+
     ```bash
     make down
     ```
-5.  **Perform a full cleanup (deletes all data):**
+
+5. **Perform a full cleanup (deletes all data):**
+
     ```bash
     make clean
     ```
@@ -147,7 +136,7 @@ graph TD
     end
 
     subgraph Docker Environment
-        subgraph Shared External Network (graphtastic_net)
+        subgraph Shared External Network (graphtastic-network)
             direction LR
             D[":8081<br/>dgraph-alpha"]
             G[":8080<br/>guac-graphql"]
@@ -183,15 +172,15 @@ graph TD
     M -- "http://guac-graphql:8080" --> G
 ```
 
-*   **Internal Networks (`dgraph_internal_net`, `guac_internal_net`):**
-    *   **Purpose:** Secure, private communication between the internal components of a single stack.
-    *   **Example:** `dgraph-alpha` communicates with `dgraph-zero` over `dgraph_internal_net`. These services are completely inaccessible from outside their stack.
-    *   **Analogy:** The private kitchen network in a restaurant.
+* **Internal Networks (`dgraph_internal_net`, `guac_internal_net`):**
+  * **Purpose:** Secure, private communication between the internal components of a single stack.
+  * **Example:** `dgraph-alpha` communicates with `dgraph-zero` over `dgraph_internal_net`. These services are completely inaccessible from outside their stack.
+  * **Analogy:** The private kitchen network in a restaurant.
 
-*   **Shared External Network (`graphtastic_net`):**
-    *   **Purpose:** A common network for services that need to expose an API endpoint to other stacks or to the host machine.
-    *   **Example:** `dgraph-alpha`, `guac-graphql`, and `guac-mesh-graphql` all attach to this network to expose their APIs. Development tools like the `extractor` also attach here to consume those APIs.
-    *   **Analogy:** The public-facing service counter of a restaurant.
+* **Shared External Network (`graphtastic-network`):**
+  * **Purpose:** A common network for services that need to expose an API endpoint to other stacks or to the host machine.
+  * **Example:** `dgraph-alpha`, `guac-graphql`, and `guac-mesh-graphql` all attach to this network to expose their APIs. Development tools like the `extractor` also attach here to consume those APIs.
+  * **Analogy:** The public-facing service counter of a restaurant.
 
 This architecture provides the ideal balance: **strong isolation for backend components** and **controlled, discoverable access for public-facing APIs**.
 
@@ -199,7 +188,7 @@ This architecture provides the ideal balance: **strong isolation for backend com
 
 For a complete breakdown of the data ingestion architecture, please see the core implementation design:
 
-*   [**`docs/design/design--guac-to-dgraph.md`**](./docs/design/design--guac-to-dgraph.md)
+* [**`docs/design/design--guac-to-dgraph.md`**](./docs/design/design--guac-to-dgraph.md)
 
 ## 4. Project Documentation & Design Philosophy
 
@@ -220,5 +209,5 @@ Contributions are welcome! Please see our contributing guidelines for more infor
 
 This project is dual-licensed to enable broad code adoption while ensuring our documentation and knowledge base remain open for the community. Project copyright and contributor attribution are managed in our [`NOTICE`](./NOTICE) and [`CONTRIBUTORS.md`](./CONTRIBUTORS.md) files.
 
-*   **Code is licensed under [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).** The full license text is in [`LICENSE.code`](./LICENSE.code).
-*   **Documentation is licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).** The full license text is in [`LICENSE.docs`](./LICENSE.docs).
+* **Code is licensed under [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).** The full license text is in [`LICENSE.code`](./LICENSE.code).
+* **Documentation is licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).** The full license text is in [`LICENSE.docs`](./LICENSE.docs).

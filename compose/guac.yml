@@ -15,7 +15,9 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-guac}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-guac}
     volumes:
-      - ${GUAC_DATA_PATH:-../dgraph-stack/guac-data}:/var/lib/postgresql/data
+      - type: ${PERSISTENCE_MODE:-bind}
+        source: ${GUAC_POSTGRES_DATA_VOLUME:-${DATA_BASE_PATH:-.}/runtime-data/guac-postgres}
+        target: /var/lib/postgresql/data
     restart: on-failure
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-guac} -d ${POSTGRES_DB:-guac}"]
@@ -59,7 +61,9 @@ services:
       guac-postgres:
         condition: service_healthy
     volumes:
-      - ../sboms:/sboms # Note: relative path from project root
+      - type: bind
+        source: ${DATA_BASE_PATH:-.}/sboms
+        target: /sboms
 
 networks:
   guac_internal_net:
