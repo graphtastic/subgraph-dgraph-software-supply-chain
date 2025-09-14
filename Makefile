@@ -46,10 +46,6 @@ var-%:
 -include .env
 export
 
-# Preflight: Warn if .env is missing
-.PHONY: preflight
-preflight:
-	@if [ ! -f .env ]; then \
 	  echo "==============================="; \
 	  echo " WARNING: .env file not found! "; \
 	  echo " Proceeding with Makefile defaults."; \
@@ -60,7 +56,52 @@ preflight:
 	  echo "==============================="; \
 	fi
 
-
+# Print all environment and port variables grouped by context
+.PHONY: print-vars
+print-vars:
+	@echo ""
+	@echo "[Core Networking & Compose]"
+	@echo "  EXTERNAL_NETWORK_NAME = $(EXTERNAL_NETWORK_NAME)"
+	@echo "  COMPOSE_FILE         = $(COMPOSE_FILE)"
+	@echo ""
+	@echo "[Dgraph Stack]"
+	@echo "  DGRAPH_ALPHA_WHITELIST = $(DGRAPH_ALPHA_WHITELIST)"
+	@echo "  DGRAPH_DATA_MODE       = $(DGRAPH_DATA_MODE)"
+	@echo "  DGRAPH_DATA_VOLUME     = $(DGRAPH_DATA_VOLUME)"
+	@echo "  DGRAPH_DATA_VOLUME_ZERO = $(DGRAPH_DATA_VOLUME_ZERO)"
+	@echo "  DGRAPH_DATA_VOLUME_ALPHA = $(DGRAPH_DATA_VOLUME_ALPHA)"
+	@echo ""
+	@echo "[Dgraph Ports]"
+	@echo "  DGRAPH_ZERO_GRPC_PORT_HOST = $(DGRAPH_ZERO_GRPC_PORT_HOST)"
+	@echo "  DGRAPH_ZERO_GRPC_PORT      = $(DGRAPH_ZERO_GRPC_PORT)"
+	@echo "  DGRAPH_ZERO_HTTP_PORT_HOST = $(DGRAPH_ZERO_HTTP_PORT_HOST)"
+	@echo "  DGRAPH_ZERO_HTTP_PORT      = $(DGRAPH_ZERO_HTTP_PORT)"
+	@echo "  DGRAPH_ALPHA_GRPC_PORT_HOST = $(DGRAPH_ALPHA_GRPC_PORT_HOST)"
+	@echo "  DGRAPH_ALPHA_GRPC_PORT      = $(DGRAPH_ALPHA_GRPC_PORT)"
+	@echo "  DGRAPH_ALPHA_HTTP_PORT_HOST = $(DGRAPH_ALPHA_HTTP_PORT_HOST)"
+	@echo "  DGRAPH_ALPHA_HTTP_PORT      = $(DGRAPH_ALPHA_HTTP_PORT)"
+	@echo "  DGRAPH_RATEL_PORT_HOST      = $(DGRAPH_RATEL_PORT_HOST)"
+	@echo "  DGRAPH_RATEL_PORT           = $(DGRAPH_RATEL_PORT)"
+	@echo ""
+	@echo "[GUAC Stack]"
+	@echo "  POSTGRES_DB        = $(POSTGRES_DB)"
+	@echo "  POSTGRES_USER      = $(POSTGRES_USER)"
+	@echo "  POSTGRES_PASSWORD  = $(POSTGRES_PASSWORD)"
+	@echo "  GUAC_DATA_PATH     = $(GUAC_DATA_PATH)"
+	@echo "  POSTGRES_PORT_HOST = $(POSTGRES_PORT_HOST)"
+	@echo "  POSTGRES_PORT      = $(POSTGRES_PORT)"
+	@echo "  GUAC_GRAPHQL_PORT_HOST = $(GUAC_GRAPHQL_PORT_HOST)"
+	@echo "  GUAC_GRAPHQL_PORT      = $(GUAC_GRAPHQL_PORT)"
+	@echo ""
+	@echo "[Mesh/Extractor]"
+	@echo "  MESH_ENDPOINT      = $(MESH_ENDPOINT)"
+	@echo "  GUAC_ENDPOINT      = $(GUAC_ENDPOINT)"
+	@echo "  MESH_GRAPHQL_PORT_HOST = $(MESH_GRAPHQL_PORT_HOST)"
+	@echo "  MESH_GRAPHQL_PORT      = $(MESH_GRAPHQL_PORT)"
+	@echo ""
+	@echo "[Tooling]"
+	@echo "  USE_LOCAL_TOOLS    = $(USE_LOCAL_TOOLS)"
+	@echo ""
 
 # Project-specific paths
 DGRAPH_STACK_DIR := dgraph-stack
@@ -76,6 +117,8 @@ DGRAPH_BULK_ARGS := --map_shards=1 --reduce_shards=1 --zero=dgraph-zero:5080
 
 # === Main Targets ===
 .PHONY: help setup up down clean status logs
+
+help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "=== Main Targets ==="
